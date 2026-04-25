@@ -2,7 +2,9 @@ export type NodeType = "box" | "text" | "image" | "button" | "input";
 
 export interface CanvasNode {
   id: string;
+  pageId: string;
   type: NodeType;
+  /** Position is relative to the parent page frame (top-left of the frame's content area). */
   position: { x: number; y: number };
   size: { width: number; height: number };
   style: {
@@ -21,6 +23,31 @@ export interface CanvasNode {
   };
   content?: string;
   zIndex: number;
+}
+
+export interface Page {
+  id: string;
+  name: string;
+  /** Top-left of the page frame on the infinite canvas. */
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  background?: string;
+}
+
+/** A directed flow connection from one page to another (or from a node to a page). */
+export interface Edge {
+  id: string;
+  fromPageId: string;
+  /** Optional source node — if set, the arrow originates from this element on the page. */
+  fromNodeId?: string;
+  toPageId: string;
+  label?: string;
+}
+
+export interface Scene {
+  pages: Page[];
+  nodes: CanvasNode[];
+  edges: Edge[];
 }
 
 export const defaultStyleFor = (type: NodeType): CanvasNode["style"] => {
@@ -89,3 +116,13 @@ export const defaultSizeFor = (type: NodeType) => {
       return { width: 280, height: 180 };
   }
 };
+
+export const defaultPageSize = { width: 420, height: 720 };
+
+export const newPage = (name: string, x: number, y: number): Page => ({
+  id: `p_${Math.random().toString(36).slice(2, 8)}`,
+  name,
+  position: { x, y },
+  size: { ...defaultPageSize },
+  background: "#0f0d0b",
+});
