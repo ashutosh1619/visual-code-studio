@@ -1,9 +1,9 @@
 import { useState } from "react";
-import type { CanvasNode } from "@/lib/scene";
+import type { CanvasNode, TextStyleRole } from "@/lib/scene";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Trash2, Eye, EyeOff, Sparkles, Component as ComponentIcon, ArrowUpToLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,9 +14,13 @@ interface Props {
   onUpdateStyle: (id: string, patch: Partial<CanvasNode["style"]>) => void;
   onDelete: (id: string) => void;
   onSelect: (id: string) => void;
+  /** Present only when the selected node is a component instance. */
+  onPushToMaster?: () => void;
 }
 
-export const InspectorPanel = ({ nodes, selected, onUpdate, onUpdateStyle, onDelete, onSelect }: Props) => {
+const TEXT_ROLES: TextStyleRole[] = ["display", "h1", "h2", "h3", "body", "caption", "label"];
+
+export const InspectorPanel = ({ nodes, selected, onUpdate, onUpdateStyle, onDelete, onSelect, onPushToMaster }: Props) => {
   const [tab, setTab] = useState("properties");
 
   return (
