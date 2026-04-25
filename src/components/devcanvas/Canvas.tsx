@@ -93,6 +93,15 @@ export const Canvas = ({
 
   const pageById = new Map(pages.map((p) => [p.id, p]));
 
+  const previews = useMemo(
+    () => (layoutPreview ? buildScenePreview(pages, nodes) : []),
+    [layoutPreview, pages, nodes],
+  );
+  const previewByPage = useMemo(
+    () => new Map(previews.map((p) => [p.pageId, p])),
+    [previews],
+  );
+
   useEffect(() => {
     if (!drag) return;
     const onMove = (e: MouseEvent) => {
