@@ -1,4 +1,4 @@
-import { Sparkles, Settings2, Code2, Wand2, Plus, ArrowRightCircle, Loader2, MessageSquarePlus, Share2, Download, Wand } from "lucide-react";
+import { Sparkles, Settings2, Code2, Wand2, Plus, ArrowRightCircle, Loader2, MessageSquarePlus, Share2, Download, Wand, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,8 @@ interface Props {
   autoFixing: boolean;
   generating: boolean;
   peerCount: number;
+  layoutPreview: boolean;
+  onToggleLayoutPreview: () => void;
 }
 
 export const Toolbar = ({
@@ -44,6 +46,8 @@ export const Toolbar = ({
   autoFixing,
   generating,
   peerCount,
+  layoutPreview,
+  onToggleLayoutPreview,
 }: Props) => {
   return (
     <div className="flex h-14 items-center justify-between border-b hairline panel-surface px-4">
@@ -94,6 +98,18 @@ export const Toolbar = ({
         >
           {autoFixing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand className="h-3 w-3" />}
           Auto-fix
+        </button>
+        <button
+          onClick={onToggleLayoutPreview}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] transition-colors",
+            layoutPreview
+              ? "border-accent bg-accent text-accent-foreground"
+              : "hairline bg-rail/40 text-muted-foreground hover:border-accent/40 hover:text-foreground",
+          )}
+          title="Toggle layout preview — see inferred Stack/Grid containers and gaps"
+        >
+          <LayoutGrid className="h-3 w-3" /> Layout
         </button>
       </div>
 
