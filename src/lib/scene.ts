@@ -1,5 +1,27 @@
 export type NodeType = "box" | "text" | "image" | "button" | "input";
 
+/** Semantic typographic role; pulled from token scale at render-time when set. */
+export type TextStyleRole =
+  | "display"
+  | "h1"
+  | "h2"
+  | "h3"
+  | "body"
+  | "caption"
+  | "label";
+
+/**
+ * A subset of style props that can be bound to a token path.
+ * Example: tokenRefs.background = "colors.surface"
+ */
+export interface TokenRefs {
+  background?: string;
+  color?: string;
+  borderColor?: string;
+  borderRadius?: string; // e.g. "radius.md"
+  fontSize?: string; // e.g. "type.h2"
+}
+
 export interface CanvasNode {
   id: string;
   pageId: string;
@@ -23,6 +45,14 @@ export interface CanvasNode {
   };
   content?: string;
   zIndex: number;
+  /** Semantic typographic role — when set, fontSize/weight resolve from tokens. */
+  textStyle?: TextStyleRole;
+  /** Map of style props bound to design-token paths. */
+  tokenRefs?: TokenRefs;
+  /** When this node is an instance of a saved component, the master id. */
+  componentId?: string;
+  /** Style/content props the user manually overrode on this instance. */
+  instanceOverrides?: Array<keyof CanvasNode | `style.${string}`>;
 }
 
 export interface Page {

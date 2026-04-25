@@ -1,9 +1,9 @@
 import { useState } from "react";
-import type { CanvasNode } from "@/lib/scene";
+import type { CanvasNode, TextStyleRole } from "@/lib/scene";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Trash2, Eye, EyeOff, Sparkles, Component as ComponentIcon, ArrowUpToLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,9 +14,13 @@ interface Props {
   onUpdateStyle: (id: string, patch: Partial<CanvasNode["style"]>) => void;
   onDelete: (id: string) => void;
   onSelect: (id: string) => void;
+  /** Present only when the selected node is a component instance. */
+  onPushToMaster?: () => void;
 }
 
-export const InspectorPanel = ({ nodes, selected, onUpdate, onUpdateStyle, onDelete, onSelect }: Props) => {
+const TEXT_ROLES: TextStyleRole[] = ["display", "h1", "h2", "h3", "body", "caption", "label"];
+
+export const InspectorPanel = ({ nodes, selected, onUpdate, onUpdateStyle, onDelete, onSelect, onPushToMaster }: Props) => {
   const [tab, setTab] = useState("properties");
 
   return (
@@ -40,6 +44,26 @@ export const InspectorPanel = ({ nodes, selected, onUpdate, onUpdateStyle, onDel
           <TabsContent value="properties" className="m-0 space-y-5">
             {selected ? (
               <>
+                {selected.componentId && (
+                  <div className="flex items-center justify-between rounded-md border border-accent/40 bg-accent-soft/30 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ComponentIcon className="h-3 w-3 text-accent shrink-0" />
+                      <span className="truncate text-[11px] text-foreground/90">
+                        Instance · <span className="font-mono opacity-60">{selected.componentId.split("#")[0].slice(-6)}</span>
+                      </span>
+                    </div>
+                    {onPushToMaster && (
+                      <button
+                        onClick={onPushToMaster}
+                        className="ml-2 flex items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground hover:opacity-90"
+                        title="Push edits to master, cascade to all instances"
+                      >
+                        <ArrowUpToLine className="h-2.5 w-2.5" /> Push
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <Group title="Position & Size">
                   <Pair>
                     <Field label="X" value={Math.round(selected.position.x)} onChange={(v) => onUpdate(selected.id, { position: { ...selected.position, x: v } })} />
@@ -50,6 +74,31 @@ export const InspectorPanel = ({ nodes, selected, onUpdate, onUpdateStyle, onDel
                     <Field label="H" value={Math.round(selected.size.height)} onChange={(v) => onUpdate(selected.id, { size: { ...selected.size, height: v } })} />
                   </Pair>
                 </Group>
+
+                {selected.type === "text" && (
+                  <Group title="Typography">
+                    <Label className="mb-1 block text-[10px] uppercase tracking-wider text-muted-foreground">Text style</Label>
+                    <div className="grid grid-cols-4 gap-1 rounded-md border hairline bg-rail/40 p-1">
+                      {TEXT_ROLES.map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => onUpdate(selected.id, { textStyle: r })}
+                          className={cn(
+                            "rounded px-1.5 py-1 text-[10px] capitalize transition-colors",
+                            (selected.textStyle ?? "body") === r
+                              ? "bg-accent text-accent-foreground"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground/70">
+                      Bound to type scale — changes when you switch themes.
+                    </p>
+                  </Group>
+                )}
 
                 <Group title="Appearance">
                   <ColorField label="Background" value={selected.style.background ?? "#1a1714"} onChange={(v) => onUpdateStyle(selected.id, { background: v })} />

@@ -28,15 +28,23 @@ import {
   newPage,
 } from "@/lib/scene";
 import { generateCode } from "@/lib/codegen";
-import { generateWireframe, regeneratePage } from "@/lib/ai";
+import { generateWireframe, regeneratePage, autoFixPage } from "@/lib/ai";
 import {
   PRESET_THEMES,
   applyTokensToScene,
   loadTokens,
   saveTokens,
+  markOverride,
   type DesignTokens,
 } from "@/lib/tokens";
-import { instantiateComponent, type SavedComponent } from "@/lib/components";
+import {
+  instantiateComponent,
+  loadComponents,
+  saveComponents,
+  updateMasterFromInstance,
+  propagateMasterToInstances,
+  type SavedComponent,
+} from "@/lib/components";
 import { toast } from "sonner";
 
 const uid = () => `n_${Math.random().toString(36).slice(2, 8)}`;
@@ -123,6 +131,7 @@ const Index = () => {
   const [comments, setComments] = useState<Comment[]>(() => loadComments());
   const [peerCount, setPeerCount] = useState(0);
   const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
+  const [autoFixing, setAutoFixing] = useState(false);
 
   // Tokens
   const [{ themeKey, tokens }, setTheme] = useState(() => loadTokens());
@@ -189,8 +198,43 @@ const Index = () => {
   }, []);
 
   const updateStyle = useCallback((id: string, patch: Partial<CanvasNode["style"]>) => {
-    setScene((s) => ({ ...s, nodes: s.nodes.map((n) => (n.id === id ? { ...n, style: { ...n.style, ...patch } } : n)) }));
+    setScene((s) => ({
+      ...s,
+      nodes: s.nodes.map((n) => {
+        if (n.id !== id) return n;
+        // Mark each touched style prop as overridden so theme switches and
+        // master-component cascades won't clobber the user's manual choice.
+        let next: CanvasNode = { ...n, style: { ...n.style, ...patch } };
+        for (const k of Object.keys(patch)) {
+          next = markOverride(next, k as keyof CanvasNode["style"]);
+        }
+        return next;
+      }),
+    }));
   }, []);
+
+  // ---------- Master / instance propagation ----------
+  // When the user edits a node that is part of a saved component, we offer to
+  // push those edits up to the master + cascade to every instance.
+  const propagateFromInstance = useCallback((node: CanvasNode) => {
+    if (!node.componentId) return;
+    const masterId = node.componentId.split("#")[0];
+    const list = loadComponents();
+    const master = list.find((c) => c.id === masterId);
+    if (!master) return;
+    // Collect all instance children (same instance group on this page).
+    const sameInstance = scene.nodes.filter(
+      (m) => m.componentId?.startsWith(`${masterId}#`) && m.pageId === node.pageId,
+    );
+    if (sameInstance.length === 0) return;
+    const updated = updateMasterFromInstance(master, sameInstance);
+    const nextList = list.map((c) => (c.id === masterId ? updated : c));
+    saveComponents(nextList);
+    const cascaded = propagateMasterToInstances(updated, scene.nodes);
+    setScene((s) => ({ ...s, nodes: cascaded }));
+    commit(`Update master · ${updated.name}`);
+    toast.success(`Pushed to ${updated.name} · v${updated.version}`);
+  }, [scene.nodes, commit]);
 
   const deleteNode = useCallback((id: string) => {
     setScene((s) => ({ ...s, nodes: s.nodes.filter((n) => n.id !== id) }));
@@ -263,6 +307,56 @@ const Index = () => {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Regenerate failed");
     } finally { setRegeneratingPageId(null); }
+  };
+
+  // ---------- Vision-grounded auto-fix across every page ----------
+  const handleAutoFix = async () => {
+    if (pages.length === 0) {
+      toast.error("Nothing to fix yet");
+      return;
+    }
+    setAutoFixing(true);
+    let totalFixes = 0;
+    try {
+      const updatesById = new Map<string, Partial<CanvasNode>>();
+      for (const page of pages) {
+        const pageNodes = nodes.filter((n) => n.pageId === page.id);
+        if (pageNodes.length === 0) continue;
+        try {
+          const fixes = await autoFixPage(page, pageNodes);
+          for (const f of fixes) {
+            const orig = pageNodes.find((n) => n.id === f.id);
+            if (!orig) continue;
+            const merged: Partial<CanvasNode> = { ...(updatesById.get(f.id) ?? {}) };
+            if (f.patch.position) merged.position = f.patch.position;
+            if (f.patch.size) merged.size = f.patch.size;
+            if (typeof f.patch.content === "string") merged.content = f.patch.content;
+            if (f.patch.style) {
+              merged.style = { ...orig.style, ...(merged.style ?? {}), ...f.patch.style };
+            }
+            updatesById.set(f.id, merged);
+            totalFixes++;
+          }
+        } catch (e) {
+          // continue with the next page; surface a single warning at the end
+          console.warn("auto-fix page failed", page.name, e);
+        }
+      }
+      if (updatesById.size === 0) {
+        toast.info("Nothing to fix — looks good!");
+      } else {
+        setScene((s) => ({
+          ...s,
+          nodes: s.nodes.map((n) => (updatesById.has(n.id) ? { ...n, ...updatesById.get(n.id) } : n)),
+        }));
+        commit("AI auto-fix");
+        toast.success(`Auto-fix · ${totalFixes} adjustment${totalFixes === 1 ? "" : "s"} applied`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Auto-fix failed");
+    } finally {
+      setAutoFixing(false);
+    }
   };
 
   // Tokens application
@@ -386,6 +480,8 @@ const Index = () => {
           commentMode={commentMode} onToggleComment={() => setCommentMode((c) => !c)}
           onOpenShare={() => setShareOpen(true)}
           onOpenExport={() => setExportOpen(true)}
+          onAutoFix={handleAutoFix}
+          autoFixing={autoFixing}
           generating={generating} peerCount={peerCount}
         />
 
@@ -450,6 +546,7 @@ const Index = () => {
             onUpdate={updateNode} onUpdateStyle={updateStyle}
             onDelete={deleteNode}
             onSelect={(id) => setSelectedIds([id])}
+            onPushToMaster={selected?.componentId ? () => propagateFromInstance(selected) : undefined}
           />
         </main>
 

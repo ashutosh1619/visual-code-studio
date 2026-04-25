@@ -1,4 +1,4 @@
-import { Sparkles, Settings2, Code2, Wand2, Plus, ArrowRightCircle, Loader2, MessageSquarePlus, Share2, Download } from "lucide-react";
+import { Sparkles, Settings2, Code2, Wand2, Plus, ArrowRightCircle, Loader2, MessageSquarePlus, Share2, Download, Wand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,8 @@ interface Props {
   onToggleComment: () => void;
   onOpenShare: () => void;
   onOpenExport: () => void;
+  onAutoFix: () => void;
+  autoFixing: boolean;
   generating: boolean;
   peerCount: number;
 }
@@ -38,6 +40,8 @@ export const Toolbar = ({
   onToggleComment,
   onOpenShare,
   onOpenExport,
+  onAutoFix,
+  autoFixing,
   generating,
   peerCount,
 }: Props) => {
@@ -81,6 +85,15 @@ export const Toolbar = ({
           )}
         >
           <MessageSquarePlus className="h-3 w-3" /> Comment
+        </button>
+        <button
+          onClick={onAutoFix}
+          disabled={autoFixing}
+          className="flex items-center gap-1.5 rounded-md border hairline bg-rail/40 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground disabled:opacity-50"
+          title="AI reviews every page and fixes overlaps, alignment, contrast"
+        >
+          {autoFixing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand className="h-3 w-3" />}
+          Auto-fix
         </button>
       </div>
 

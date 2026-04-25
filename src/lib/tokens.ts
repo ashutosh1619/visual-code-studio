@@ -1,12 +1,11 @@
 // Design tokens — colors, type scale, radii. Applied to the scene as a whole
 // so toggling a theme cascades through every node that opted into the token.
 //
-// Nodes still store concrete style values (background "#d49a3e" etc.) so we
-// keep render fast and codegen straightforward. The optional `tokenRefs` map
-// records which node properties came from which token; when a token changes we
-// rewrite those properties in one pass.
+// v2: nodes record `tokenRefs` (which style prop came from which token path)
+// and `textStyle` (semantic role: h1/h2/body/...). When tokens change, we
+// rewrite ONLY the bound props — manual overrides survive.
 
-import type { CanvasNode, Page, Scene } from "./scene";
+import type { CanvasNode, Page, TextStyleRole, TokenRefs } from "./scene";
 
 export interface DesignTokens {
   colors: {
@@ -27,7 +26,6 @@ export interface DesignTokens {
     fontFamily: "sans" | "serif" | "mono";
   };
   radius: {
-    /** small (inputs), medium (cards), large (frames) */
     sm: number;
     md: number;
     lg: number;
@@ -107,68 +105,109 @@ export const PRESET_THEMES: Record<string, { name: string; tokens: DesignTokens 
 
 export const DEFAULT_THEME_KEY = "ember";
 
-/** Map a node type to the conventional token slot it pulls from. */
-const tokenizeNode = (node: CanvasNode, t: DesignTokens): CanvasNode => {
-  const ts = t.type;
-  const fontMap = { sans: undefined, serif: undefined, mono: undefined };
-  // We don't change the family per node here (handled at the page-level CSS),
-  // but we use the type scale to size text consistently.
+/** Compute the px size for a semantic text role from the type scale. */
+export const textRoleSize = (role: TextStyleRole, t: DesignTokens): number => {
+  const { base, scale } = t.type;
+  switch (role) {
+    case "display":
+      return Math.round(base * Math.pow(scale, 4));
+    case "h1":
+      return Math.round(base * Math.pow(scale, 3));
+    case "h2":
+      return Math.round(base * Math.pow(scale, 2));
+    case "h3":
+      return Math.round(base * scale);
+    case "body":
+      return base;
+    case "caption":
+    case "label":
+      return Math.max(11, Math.round(base / scale));
+  }
+};
+
+/** Resolve a token path like "colors.surface" against current tokens. */
+export const resolveToken = (path: string, t: DesignTokens): string | number | undefined => {
+  const [group, key] = path.split(".");
+  const g = (t as any)[group];
+  return g ? g[key] : undefined;
+};
+
+/** Did the user manually override this style prop? Then we DO NOT rebind it. */
+const isOverridden = (
+  node: CanvasNode,
+  prop: keyof CanvasNode["style"],
+): boolean => {
+  const k = `style.${prop}` as const;
+  return Array.isArray(node.instanceOverrides) && node.instanceOverrides.includes(k as any);
+};
+
+/** Bind common token slots based on element type — produces tokenRefs. */
+const defaultRefsFor = (node: CanvasNode): TokenRefs => {
   switch (node.type) {
-    case "text": {
-      // Preserve relative size: we treat the existing fontSize as a scale step.
-      // Default body = base; >18px = h2 (scale^2); >24px = h1 (scale^3).
-      const current = node.style.fontSize ?? ts.base;
-      let next = ts.base;
-      if (current >= 24) next = Math.round(ts.base * Math.pow(ts.scale, 3));
-      else if (current >= 18) next = Math.round(ts.base * Math.pow(ts.scale, 2));
-      else if (current >= 16) next = Math.round(ts.base * ts.scale);
-      return {
-        ...node,
-        style: { ...node.style, color: t.colors.text, fontSize: next },
-      };
-    }
+    case "text":
+      return { color: "colors.text" };
     case "button":
       return {
-        ...node,
-        style: {
-          ...node.style,
-          background: t.colors.accent,
-          color: t.colors.accentText,
-          borderRadius: t.radius.md,
-          fontSize: ts.base,
-        },
+        background: "colors.accent",
+        color: "colors.accentText",
+        borderRadius: "radius.md",
       };
     case "input":
       return {
-        ...node,
-        style: {
-          ...node.style,
-          background: t.colors.surface,
-          color: t.colors.text,
-          borderColor: t.colors.border,
-          borderWidth: 1,
-          borderRadius: t.radius.sm,
-          fontSize: ts.base,
-        },
+        background: "colors.surface",
+        color: "colors.text",
+        borderColor: "colors.border",
+        borderRadius: "radius.sm",
       };
     case "image":
-      return {
-        ...node,
-        style: { ...node.style, background: t.colors.surfaceMuted, borderRadius: t.radius.md },
-      };
+      return { background: "colors.surfaceMuted", borderRadius: "radius.md" };
     case "box":
     default:
       return {
-        ...node,
-        style: {
-          ...node.style,
-          background: t.colors.surface,
-          borderColor: t.colors.border,
-          borderWidth: 1,
-          borderRadius: t.radius.lg,
-        },
+        background: "colors.surface",
+        borderColor: "colors.border",
+        borderRadius: "radius.lg",
       };
   }
+};
+
+/** Apply tokens to a single node, respecting tokenRefs + overrides + textStyle. */
+const applyToNode = (node: CanvasNode, t: DesignTokens): CanvasNode => {
+  const refs: TokenRefs = node.tokenRefs ?? defaultRefsFor(node);
+  const next = { ...node, tokenRefs: refs, style: { ...node.style } };
+
+  const setIfBound = (
+    prop: keyof TokenRefs,
+    target: keyof CanvasNode["style"],
+  ) => {
+    const path = refs[prop];
+    if (!path) return;
+    if (isOverridden(node, target)) return;
+    const v = resolveToken(path, t);
+    if (v !== undefined) (next.style as any)[target] = v;
+  };
+
+  setIfBound("background", "background");
+  setIfBound("color", "color");
+  setIfBound("borderColor", "borderColor");
+  setIfBound("borderRadius", "borderRadius");
+
+  // Type scale via textStyle role — only when role is set and not overridden.
+  if (node.type === "text" && node.textStyle && !isOverridden(node, "fontSize")) {
+    next.style.fontSize = textRoleSize(node.textStyle, t);
+    if (
+      !isOverridden(node, "fontWeight") &&
+      (node.textStyle === "display" || node.textStyle === "h1" || node.textStyle === "h2")
+    ) {
+      next.style.fontWeight = 600;
+    }
+  } else if (node.type === "button" && !isOverridden(node, "fontSize")) {
+    next.style.fontSize = t.type.base;
+  } else if (node.type === "input" && !isOverridden(node, "fontSize")) {
+    next.style.fontSize = t.type.base;
+  }
+
+  return next;
 };
 
 export const applyTokensToScene = (
@@ -176,10 +215,24 @@ export const applyTokensToScene = (
   tokens: DesignTokens,
 ): { pages: Page[]; nodes: CanvasNode[] } => ({
   pages: scene.pages.map((p) => ({ ...p, background: tokens.colors.background })),
-  nodes: scene.nodes.map((n) => tokenizeNode(n, tokens)),
+  nodes: scene.nodes.map((n) => applyToNode(n, tokens)),
 });
 
-/** Persisted slice on the scene. */
+/**
+ * Mark a style prop on a node as a manual override (so future theme switches
+ * don't clobber it). Call this from the inspector when the user edits a value.
+ */
+export const markOverride = (
+  node: CanvasNode,
+  prop: keyof CanvasNode["style"],
+): CanvasNode => {
+  const key = `style.${prop}` as const;
+  const prev = node.instanceOverrides ?? [];
+  if (prev.includes(key as any)) return node;
+  return { ...node, instanceOverrides: [...prev, key as any] };
+};
+
+/** Persisted slice. */
 const STORAGE_KEY = "devcanvas:tokens";
 
 export const loadTokens = (): { themeKey: string; tokens: DesignTokens } => {
