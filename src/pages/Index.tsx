@@ -363,6 +363,18 @@ const Index = () => {
               onConnectPages={handleConnectPages}
             />
 
+            <CollabLayer
+              roomId="default"
+              zoom={zoom}
+              cursor={cursor}
+              pages={pages}
+              comments={comments}
+              commentMode={commentMode}
+              onAddComment={addComment}
+              onResolveComment={resolveComment}
+              onDeleteComment={deleteComment}
+            />
+
             {/* Floating editorial caption */}
             <div className="pointer-events-none absolute left-6 top-6 max-w-xs">
               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">
@@ -398,6 +410,14 @@ const Index = () => {
 
       <ProvidersDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <CodePreviewDialog open={codeOpen} onOpenChange={setCodeOpen} code={generatedCode} />
+      <SharePopover open={shareOpen} onOpenChange={setShareOpen} peerCount={peerCount} />
+      <ExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        pages={pages}
+        nodes={nodes}
+        edges={edges}
+      />
     </>
   );
 };
