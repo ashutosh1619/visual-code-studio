@@ -28,15 +28,23 @@ import {
   newPage,
 } from "@/lib/scene";
 import { generateCode } from "@/lib/codegen";
-import { generateWireframe, regeneratePage } from "@/lib/ai";
+import { generateWireframe, regeneratePage, autoFixPage } from "@/lib/ai";
 import {
   PRESET_THEMES,
   applyTokensToScene,
   loadTokens,
   saveTokens,
+  markOverride,
   type DesignTokens,
 } from "@/lib/tokens";
-import { instantiateComponent, type SavedComponent } from "@/lib/components";
+import {
+  instantiateComponent,
+  loadComponents,
+  saveComponents,
+  updateMasterFromInstance,
+  propagateMasterToInstances,
+  type SavedComponent,
+} from "@/lib/components";
 import { toast } from "sonner";
 
 const uid = () => `n_${Math.random().toString(36).slice(2, 8)}`;
@@ -123,6 +131,7 @@ const Index = () => {
   const [comments, setComments] = useState<Comment[]>(() => loadComments());
   const [peerCount, setPeerCount] = useState(0);
   const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
+  const [autoFixing, setAutoFixing] = useState(false);
 
   // Tokens
   const [{ themeKey, tokens }, setTheme] = useState(() => loadTokens());
