@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CanvasNode, Page, Edge } from "@/lib/scene";
 import { snapRect, type Guide } from "@/lib/snap";
+import { buildScenePreview, containerLabel } from "@/lib/layoutPreview";
 import { cn } from "@/lib/utils";
 import { Sparkles, Loader2 } from "lucide-react";
 
@@ -26,6 +27,8 @@ interface Props {
   /** Open the AI inline menu for the page (regenerate). */
   onRegeneratePage: (pageId: string) => void;
   regeneratingPageId: string | null;
+  /** When true, overlay inferred Stack/Grid containers + gap measurements. */
+  layoutPreview?: boolean;
 }
 
 type DragState =
@@ -81,6 +84,7 @@ export const Canvas = ({
   onConnectPages,
   onRegeneratePage,
   regeneratingPageId,
+  layoutPreview = false,
 }: Props) => {
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<DragState>(null);
