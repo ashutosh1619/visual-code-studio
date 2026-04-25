@@ -211,7 +211,7 @@ const normalize = (raw: any): GeneratedScene => {
   return { pages, nodes, edges };
 };
 
-export const generateWireframe = async (brief: string): Promise<GeneratedScene> => {
+async function callProvider(prompt: string, system: string): Promise<string> {
   const state = loadProviders();
   if (!state) throw new Error("No provider configured. Open Settings to add an API key.");
   const providerId = state.active;
@@ -226,22 +226,183 @@ export const generateWireframe = async (brief: string): Promise<GeneratedScene> 
 
   const url = buildUrl(cfg, providerId);
   const headers = buildHeaders(cfg, providerId);
-  const body = buildBody(cfg, providerId, brief);
+  // buildBody uses module-scoped SYSTEM_PROMPT, so swap temporarily by passing
+  // the system through the messages directly when not using the wireframe shape.
+  let body: any;
+  if (providerId === "anthropic") {
+    body = {
+      model: cfg.model,
+      max_tokens: 4096,
+      system,
+      messages: [{ role: "user", content: prompt }],
+    };
+  } else if (providerId === "google") {
+    body = {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json", temperature: 0.7 },
+    };
+  } else {
+    body = {
+      model: providerId === "azure" ? undefined : cfg.model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+    };
+  }
 
   const resp = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
   });
-
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
     throw new Error(`${providerId} ${resp.status}: ${t.slice(0, 200)}`);
   }
-
   const json = await resp.json();
   const text = extractText(providerId, json);
   if (!text) throw new Error("Empty response from model");
-  const parsed = tryParseJson(text);
-  return normalize(parsed);
+  return text;
+}
+
+export const generateWireframe = async (brief: string): Promise<GeneratedScene> => {
+  rememberPrompt(brief);
+  const text = await callProvider(brief, SYSTEM_PROMPT);
+  return normalize(tryParseJson(text));
 };
+
+// ---------- Single-page regeneration ----------
+
+const PAGE_REGEN_SYSTEM = `You redesign a single page in an existing multi-page wireframe.
+Return STRICT JSON: { "nodes": [ { "type", "x", "y", "width", "height", "content" } ] }
+- Page canvas is 420x720, keep nodes inside with 20px padding.
+- 6-14 nodes. Use box/text/image/button/input only.
+- No prose, no code fences.`;
+
+export interface RegeneratedNodes {
+  nodes: CanvasNode[];
+}
+
+export const regeneratePage = async (
+  pageName: string,
+  brief: string,
+  pageId: string,
+): Promise<RegeneratedNodes> => {
+  const userMsg = `Page name: "${pageName}"\nBrief: ${brief}`;
+  const text = await callProvider(userMsg, PAGE_REGEN_SYSTEM);
+  const raw = tryParseJson(text);
+  if (!raw || !Array.isArray(raw.nodes)) throw new Error("AI response missing nodes");
+  const nodes: CanvasNode[] = raw.nodes.map((n: any, idx: number) => {
+    const type: NodeType = (["box", "text", "image", "button", "input"] as NodeType[]).includes(n.type)
+      ? n.type
+      : "box";
+    const ds = defaultSizeFor(type);
+    return {
+      id: uid("n"),
+      pageId,
+      type,
+      position: {
+        x: Math.max(0, Math.min(400, Number(n.x ?? 20))),
+        y: Math.max(0, Math.min(700, Number(n.y ?? 20))),
+      },
+      size: {
+        width: Math.max(20, Number(n.width ?? ds.width)),
+        height: Math.max(20, Number(n.height ?? ds.height)),
+      },
+      style: defaultStyleFor(type),
+      content: n.content !== undefined ? String(n.content) : undefined,
+      zIndex: idx + 1,
+    };
+  });
+  return { nodes };
+};
+
+// ---------- Inline edit on a single node ----------
+
+const INLINE_EDIT_SYSTEM = `You receive a single UI element from a wireframe and an instruction.
+Return STRICT JSON describing the new state of that element only:
+{ "type": "box|text|image|button|input", "x": number, "y": number,
+  "width": number, "height": number, "content": "string", "background": "#hex",
+  "color": "#hex", "fontSize": number }
+Only include fields you actually changed. No prose, no code fences.`;
+
+export interface InlineEdit {
+  type?: NodeType;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
+  content?: string;
+  style?: Partial<CanvasNode["style"]>;
+}
+
+export const inlineEditNode = async (
+  node: CanvasNode,
+  instruction: string,
+): Promise<InlineEdit> => {
+  const userMsg = `Element:\n${JSON.stringify(
+    {
+      type: node.type,
+      x: Math.round(node.position.x),
+      y: Math.round(node.position.y),
+      width: node.size.width,
+      height: node.size.height,
+      content: node.content,
+      background: node.style.background,
+      color: node.style.color,
+      fontSize: node.style.fontSize,
+    },
+    null,
+    2,
+  )}\nInstruction: ${instruction}`;
+  const text = await callProvider(userMsg, INLINE_EDIT_SYSTEM);
+  const raw = tryParseJson(text);
+  const patch: InlineEdit = {};
+  if (raw.type && (["box", "text", "image", "button", "input"] as NodeType[]).includes(raw.type)) {
+    patch.type = raw.type;
+  }
+  if (typeof raw.x === "number" || typeof raw.y === "number") {
+    patch.position = {
+      x: typeof raw.x === "number" ? raw.x : node.position.x,
+      y: typeof raw.y === "number" ? raw.y : node.position.y,
+    };
+  }
+  if (typeof raw.width === "number" || typeof raw.height === "number") {
+    patch.size = {
+      width: typeof raw.width === "number" ? raw.width : node.size.width,
+      height: typeof raw.height === "number" ? raw.height : node.size.height,
+    };
+  }
+  if (typeof raw.content === "string") patch.content = raw.content;
+  const style: Partial<CanvasNode["style"]> = {};
+  if (typeof raw.background === "string") style.background = raw.background;
+  if (typeof raw.color === "string") style.color = raw.color;
+  if (typeof raw.fontSize === "number") style.fontSize = raw.fontSize;
+  if (Object.keys(style).length) patch.style = style;
+  return patch;
+};
+
+// ---------- Prompt history ----------
+
+const HISTORY_KEY = "devcanvas:promptHistory";
+
+export const loadPromptHistory = (): string[] => {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const rememberPrompt = (p: string) => {
+  const trimmed = p.trim();
+  if (!trimmed) return;
+  const cur = loadPromptHistory();
+  const next = [trimmed, ...cur.filter((x) => x !== trimmed)].slice(0, 12);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+};
+
+export const clearPromptHistory = () => localStorage.removeItem(HISTORY_KEY);
