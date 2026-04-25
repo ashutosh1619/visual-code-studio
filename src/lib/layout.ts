@@ -1,0 +1,262 @@
+// Layout engine — converts an Information Architecture (IA) tree into a flat
+// list of CanvasNodes with non-overlapping positions snapped to an 8pt grid.
+//
+// Why this exists: when the AI emits raw absolute positions, you get the
+// overlapping mess we saw in the screenshot. By giving the AI a *semantic*
+// vocabulary (sections, stacks, grids) and computing pixels deterministically
+// here, every page is guaranteed to be aligned, padded, and readable.
+
+import type { CanvasNode, NodeType, TextStyleRole } from "./scene";
+import { defaultStyleFor } from "./scene";
+
+const GRID = 8;
+const snap = (n: number) => Math.round(n / GRID) * GRID;
+
+export interface IANode {
+  /** Layout primitive or leaf type. */
+  kind: "stack" | "grid" | "leaf";
+  /** Element type when kind === "leaf". */
+  type?: NodeType;
+  /** Text content / button label / input placeholder. */
+  content?: string;
+  /** Semantic role for typography sizing. */
+  textStyle?: TextStyleRole;
+  /** Hint at desired height (leaves) — actual layout may grow it. */
+  height?: number;
+  /** Hint at desired width fraction (0..1) within parent row. Used in stacks. */
+  widthFrac?: number;
+  /** Stack/grid direction. */
+  direction?: "row" | "column";
+  /** Gap between children in grid units (default 2 = 16px). */
+  gap?: number;
+  /** Grid columns. */
+  columns?: number;
+  /** Children for stack/grid. */
+  children?: IANode[];
+  /** Background tone hint for boxes/sections. */
+  tone?: "surface" | "muted" | "transparent";
+  /** Visual padding inside container in grid units. */
+  padding?: number;
+}
+
+export interface IAPage {
+  id: string;
+  name: string;
+  /** Root container — usually a vertical stack with sections. */
+  root: IANode;
+}
+
+export interface IADocument {
+  pages: IAPage[];
+  edges: Array<{ from: string; to: string; label?: string }>;
+}
+
+const PAGE_W = 420;
+const PAGE_H = 720;
+const PAGE_PAD = 24;
+
+const TEXT_HEIGHT: Record<TextStyleRole, number> = {
+  display: 44,
+  h1: 36,
+  h2: 28,
+  h3: 22,
+  body: 20,
+  caption: 16,
+  label: 16,
+};
+
+const TEXT_FONT: Record<TextStyleRole, number> = {
+  display: 32,
+  h1: 26,
+  h2: 20,
+  h3: 17,
+  body: 14,
+  caption: 12,
+  label: 12,
+};
+
+const leafHeight = (n: IANode): number => {
+  if (n.height) return snap(n.height);
+  switch (n.type) {
+    case "text":
+      return TEXT_HEIGHT[n.textStyle ?? "body"];
+    case "button":
+      return 40;
+    case "input":
+      return 40;
+    case "image":
+      return 120;
+    case "box":
+      return 80;
+    default:
+      return 32;
+  }
+};
+
+interface LaidOut {
+  nodes: CanvasNode[];
+  /** Total measured height of this subtree. */
+  height: number;
+}
+
+const uid = () => `n_${Math.random().toString(36).slice(2, 8)}`;
+
+const buildLeaf = (
+  n: IANode,
+  pageId: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  z: number,
+): CanvasNode => {
+  const type = (n.type ?? "box") as NodeType;
+  const style = { ...defaultStyleFor(type) };
+  if (type === "text" && n.textStyle) {
+    style.fontSize = TEXT_FONT[n.textStyle];
+    if (n.textStyle === "display" || n.textStyle === "h1" || n.textStyle === "h2") {
+      style.fontWeight = 600;
+    } else if (n.textStyle === "label") {
+      style.fontWeight = 500;
+    }
+  }
+  return {
+    id: uid(),
+    pageId,
+    type,
+    position: { x: snap(x), y: snap(y) },
+    size: { width: snap(w), height: snap(h) },
+    style,
+    content: n.content,
+    zIndex: z,
+    textStyle: type === "text" ? n.textStyle : undefined,
+  };
+};
+
+const layoutNode = (
+  n: IANode,
+  pageId: string,
+  x: number,
+  y: number,
+  w: number,
+  zStart: number,
+): LaidOut => {
+  if (n.kind === "leaf") {
+    const h = leafHeight(n);
+    return {
+      nodes: [buildLeaf(n, pageId, x, y, w, h, zStart)],
+      height: h,
+    };
+  }
+
+  const padding = (n.padding ?? 0) * GRID;
+  const gap = (n.gap ?? 2) * GRID;
+  const innerX = x + padding;
+  const innerY = y + padding;
+  const innerW = w - padding * 2;
+  const out: CanvasNode[] = [];
+  let z = zStart;
+
+  if (n.kind === "grid") {
+    const cols = Math.max(1, n.columns ?? 2);
+    const cellW = (innerW - gap * (cols - 1)) / cols;
+    const children = n.children ?? [];
+    let row = 0;
+    let col = 0;
+    let rowMaxH = 0;
+    let cursorY = innerY;
+    for (const c of children) {
+      const cx = innerX + col * (cellW + gap);
+      const cy = cursorY;
+      const laid = layoutNode(c, pageId, cx, cy, cellW, z + 1);
+      out.push(...laid.nodes);
+      z += laid.nodes.length;
+      rowMaxH = Math.max(rowMaxH, laid.height);
+      col++;
+      if (col >= cols) {
+        col = 0;
+        row++;
+        cursorY += rowMaxH + gap;
+        rowMaxH = 0;
+      }
+    }
+    const totalH = (col === 0 ? cursorY - gap : cursorY + rowMaxH) - innerY;
+    return { nodes: out, height: totalH + padding * 2 };
+  }
+
+  // stack
+  const direction = n.direction ?? "column";
+  const children = n.children ?? [];
+
+  if (direction === "row") {
+    // Distribute width by widthFrac, default equal split.
+    const totalFrac = children.reduce((s, c) => s + (c.widthFrac ?? 1), 0) || 1;
+    const usableW = innerW - gap * Math.max(0, children.length - 1);
+    let cursorX = innerX;
+    let rowMaxH = 0;
+    for (const c of children) {
+      const childW = (usableW * (c.widthFrac ?? 1)) / totalFrac;
+      const laid = layoutNode(c, pageId, cursorX, innerY, childW, z + 1);
+      out.push(...laid.nodes);
+      z += laid.nodes.length;
+      rowMaxH = Math.max(rowMaxH, laid.height);
+      cursorX += childW + gap;
+    }
+    return { nodes: out, height: rowMaxH + padding * 2 };
+  }
+
+  // column
+  let cursorY = innerY;
+  for (const c of children) {
+    const laid = layoutNode(c, pageId, innerX, cursorY, innerW, z + 1);
+    out.push(...laid.nodes);
+    z += laid.nodes.length;
+    cursorY += laid.height + gap;
+  }
+  const totalH = cursorY - gap - innerY;
+  return { nodes: out, height: totalH + padding * 2 };
+};
+
+export interface LaidOutPage {
+  pageId: string;
+  nodes: CanvasNode[];
+}
+
+export const layoutPage = (page: IAPage, pageId: string): LaidOutPage => {
+  const { nodes } = layoutNode(
+    page.root,
+    pageId,
+    PAGE_PAD,
+    PAGE_PAD,
+    PAGE_W - PAGE_PAD * 2,
+    1,
+  );
+  // Clip nodes that would overflow the page height — prefer letting them sit
+  // at the bottom edge rather than escape the frame.
+  return {
+    pageId,
+    nodes: nodes.map((n) => {
+      const maxY = PAGE_H - PAGE_PAD - n.size.height;
+      return {
+        ...n,
+        position: {
+          x: Math.max(PAGE_PAD, Math.min(PAGE_W - PAGE_PAD - n.size.width, n.position.x)),
+          y: Math.max(PAGE_PAD, Math.min(maxY, n.position.y)),
+        },
+      };
+    }),
+  };
+};
+
+/** Convenience: a sane default IA root for a single page (used as fallback). */
+export const fallbackPageIA = (name: string): IANode => ({
+  kind: "stack",
+  direction: "column",
+  padding: 0,
+  gap: 2,
+  children: [
+    { kind: "leaf", type: "text", textStyle: "h1", content: name },
+    { kind: "leaf", type: "text", textStyle: "body", content: "Page content goes here." },
+    { kind: "leaf", type: "button", content: "Primary action" },
+  ],
+});
