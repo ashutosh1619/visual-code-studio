@@ -478,7 +478,10 @@ export const Canvas = ({
                 const pv = previewByPage.get(page.id);
                 if (!pv) return null;
                 return (
-                  <div className="pointer-events-none absolute inset-0">
+                  <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{ zIndex: 0 }}
+                  >
                     {/* Padding ring */}
                     <div
                       className="absolute rounded-sm border border-dashed"
@@ -487,12 +490,16 @@ export const Canvas = ({
                         top: pv.pad.y,
                         width: pv.pad.width,
                         height: pv.pad.height,
-                        borderColor: "hsl(var(--accent) / 0.35)",
+                        borderColor: "hsl(var(--accent) / 0.22)",
                       }}
                     />
-                    {/* Container outlines */}
+                    {/* Container outlines — drawn behind nodes, no fill so
+                        they never tint the content underneath. */}
                     {pv.containers.map((c, i) => {
                       const isGrid = c.kind === "grid";
+                      // Push label into the LEFT gutter so it doesn't overlap
+                      // the first child of the container.
+                      const labelLeft = Math.max(-pv.pad.x + 4, -56);
                       return (
                         <div
                           key={`c-${i}`}
@@ -502,34 +509,40 @@ export const Canvas = ({
                             top: c.y,
                             width: c.width,
                             height: c.height,
-                            border: `1px dashed hsl(var(--accent) / ${isGrid ? 0.85 : 0.55})`,
-                            background: `hsl(var(--accent) / ${isGrid ? 0.06 : 0.03})`,
+                            border: `1px dashed hsl(var(--accent) / ${isGrid ? 0.5 : 0.3})`,
                           }}
                         >
                           <span
-                            className="absolute -top-3 left-0 rounded-sm px-1 font-mono text-[9px] uppercase tracking-wider"
+                            className="absolute whitespace-nowrap rounded-sm px-1 font-mono text-[9px] uppercase tracking-wider"
                             style={{
-                              background: "hsl(var(--accent))",
-                              color: "hsl(var(--accent-foreground))",
+                              top: -2,
+                              left: labelLeft,
+                              background: "hsl(var(--background))",
+                              color: "hsl(var(--accent) / 0.8)",
+                              border: "1px solid hsl(var(--accent) / 0.25)",
                             }}
                           >
-                            {containerLabel(c.kind)} · {c.count}
-                            {c.gap > 0 ? ` · gap ${c.gap}` : ""}
+                            {containerLabel(c.kind)}
+                            {c.count > 1 ? ` ·${c.count}` : ""}
+                            {c.gap > 0 ? ` ·${c.gap}` : ""}
                           </span>
                         </div>
                       );
                     })}
-                    {/* Gap chips */}
+                    {/* Gap chips — only emitted by the preview engine when the
+                        gap is wide enough; we render them small and muted. */}
                     {pv.gaps.map((g, i) => (
                       <span
                         key={`g-${i}`}
-                        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-sm px-1 font-mono text-[9px]"
+                        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-sm px-1 font-mono text-[9px] leading-none"
                         style={{
                           left: g.x,
                           top: g.y,
-                          background: "hsl(var(--background) / 0.9)",
-                          color: "hsl(var(--accent))",
-                          border: "1px solid hsl(var(--accent) / 0.4)",
+                          paddingTop: 2,
+                          paddingBottom: 2,
+                          background: "hsl(var(--background))",
+                          color: "hsl(var(--accent) / 0.75)",
+                          border: "1px solid hsl(var(--accent) / 0.25)",
                         }}
                       >
                         {g.size}

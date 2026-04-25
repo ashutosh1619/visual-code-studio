@@ -55,31 +55,51 @@ const PAGE_W = 420;
 const PAGE_H = 720;
 const PAGE_PAD = 24;
 
-const TEXT_HEIGHT: Record<TextStyleRole, number> = {
-  display: 44,
-  h1: 36,
-  h2: 28,
+const TEXT_LINE_HEIGHT: Record<TextStyleRole, number> = {
+  display: 40,
+  h1: 32,
+  h2: 26,
   h3: 22,
   body: 20,
   caption: 16,
-  label: 16,
+  label: 18,
 };
 
 const TEXT_FONT: Record<TextStyleRole, number> = {
-  display: 32,
-  h1: 26,
-  h2: 20,
-  h3: 17,
-  body: 14,
-  caption: 12,
+  display: 30,
+  h1: 24,
+  h2: 19,
+  h3: 16,
+  body: 13,
+  caption: 11,
   label: 12,
 };
 
-const leafHeight = (n: IANode): number => {
+// Approx average glyph width as a fraction of font size — used to estimate
+// how many characters fit in a given pixel width and therefore how many
+// lines a string will wrap to.
+const CHAR_WIDTH_FACTOR = 0.55;
+
+const estimateLines = (text: string, fontSize: number, widthPx: number): number => {
+  if (!text) return 1;
+  const charsPerLine = Math.max(4, Math.floor(widthPx / (fontSize * CHAR_WIDTH_FACTOR)));
+  // Honour explicit line breaks too.
+  const explicit = text.split("\n");
+  let total = 0;
+  for (const line of explicit) {
+    total += Math.max(1, Math.ceil(line.length / charsPerLine));
+  }
+  return total;
+};
+
+const leafHeight = (n: IANode, widthPx: number): number => {
   if (n.height) return snap(n.height);
   switch (n.type) {
-    case "text":
-      return TEXT_HEIGHT[n.textStyle ?? "body"];
+    case "text": {
+      const role = n.textStyle ?? "body";
+      const lines = estimateLines(n.content ?? "", TEXT_FONT[role], widthPx);
+      return snap(lines * TEXT_LINE_HEIGHT[role]);
+    }
     case "button":
       return 40;
     case "input":
@@ -142,7 +162,7 @@ const layoutNode = (
   zStart: number,
 ): LaidOut => {
   if (n.kind === "leaf") {
-    const h = leafHeight(n);
+    const h = leafHeight(n, w);
     return {
       nodes: [buildLeaf(n, pageId, x, y, w, h, zStart)],
       height: h,
