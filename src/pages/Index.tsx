@@ -480,6 +480,8 @@ const Index = () => {
           commentMode={commentMode} onToggleComment={() => setCommentMode((c) => !c)}
           onOpenShare={() => setShareOpen(true)}
           onOpenExport={() => setExportOpen(true)}
+          onAutoFix={handleAutoFix}
+          autoFixing={autoFixing}
           generating={generating} peerCount={peerCount}
         />
 
