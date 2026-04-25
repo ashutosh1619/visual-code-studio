@@ -1,5 +1,5 @@
-import type { Page, CanvasNode, Edge, NodeType, Breakpoint } from "./scene";
-import { defaultStyleFor, defaultSizeFor, BREAKPOINT_SIZE } from "./scene";
+import type { Page, CanvasNode, Edge, NodeType } from "./scene";
+import { defaultStyleFor, defaultSizeFor } from "./scene";
 
 interface ProviderConfig {
   enabled: boolean;
