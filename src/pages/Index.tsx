@@ -132,6 +132,7 @@ const Index = () => {
   const [peerCount, setPeerCount] = useState(0);
   const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
   const [autoFixing, setAutoFixing] = useState(false);
+  const [layoutPreview, setLayoutPreview] = useState(false);
 
   // Tokens
   const [{ themeKey, tokens }, setTheme] = useState(() => loadTokens());
@@ -483,6 +484,8 @@ const Index = () => {
           onAutoFix={handleAutoFix}
           autoFixing={autoFixing}
           generating={generating} peerCount={peerCount}
+          layoutPreview={layoutPreview}
+          onToggleLayoutPreview={() => setLayoutPreview((v) => !v)}
         />
 
         <main className="flex flex-1 overflow-hidden">
@@ -514,6 +517,7 @@ const Index = () => {
               onConnectPages={handleConnectPages}
               onRegeneratePage={handleRegeneratePage}
               regeneratingPageId={regeneratingPageId}
+              layoutPreview={layoutPreview}
             />
 
             <CollabLayer
