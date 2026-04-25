@@ -112,7 +112,10 @@ export const buildPagePreview = (page: Page, allNodes: CanvasNode[]): PagePrevie
   const containers: PreviewContainer[] = [];
   const gaps: PreviewGap[] = [];
 
-  // Vertical stack of rows
+  // Vertical stack of rows — only emit gap chips for gaps wide enough that the
+  // label won't paint on top of node content. We also push the chip to the
+  // LEFT gutter (between page padding and the row) instead of the centre, so
+  // it never overlaps the elements themselves.
   if (rows.length >= 2) {
     const vGaps: number[] = [];
     for (let i = 1; i < rows.length; i++) {
@@ -120,18 +123,21 @@ export const buildPagePreview = (page: Page, allNodes: CanvasNode[]): PagePrevie
       const currTop = Math.min(...rows[i].map((n) => n.position.y));
       const g = Math.max(0, currTop - prevBottom);
       vGaps.push(g);
-      gaps.push({
-        x: padX + padW / 2,
-        y: (prevBottom + currTop) / 2,
-        axis: "v",
-        size: Math.round(g),
-      });
+      // Only show chip when the gap is meaningfully large.
+      if (g >= 12) {
+        gaps.push({
+          x: Math.max(8, padX - 14),
+          y: (prevBottom + currTop) / 2,
+          axis: "v",
+          size: Math.round(g),
+        });
+      }
     }
     containers.push({
-      x: all.x - 4,
-      y: all.y - 4,
-      width: all.width + 8,
-      height: all.height + 8,
+      x: all.x - 10,
+      y: all.y - 10,
+      width: all.width + 20,
+      height: all.height + 20,
       kind: "stack-column",
       count: rows.length,
       gap: Math.round(mode(vGaps)),
@@ -149,12 +155,17 @@ export const buildPagePreview = (page: Page, allNodes: CanvasNode[]): PagePrevie
       const currLeft = row[i].position.x;
       const g = Math.max(0, currLeft - prevRight);
       hGaps.push(g);
-      gaps.push({
-        x: (prevRight + currLeft) / 2,
-        y: rb.y + rb.height / 2,
-        axis: "h",
-        size: Math.round(g),
-      });
+      // Only show chip when the gap is wide enough to fit a 2-3 char label.
+      if (g >= 14) {
+        gaps.push({
+          x: (prevRight + currLeft) / 2,
+          // Sit chip ABOVE the row, in the vertical gutter, so it never paints
+          // over element labels.
+          y: Math.max(8, rb.y - 8),
+          axis: "h",
+          size: Math.round(g),
+        });
+      }
       widths.push(row[i].size.width);
     }
     widths.push(row[0].size.width);
@@ -163,10 +174,10 @@ export const buildPagePreview = (page: Page, allNodes: CanvasNode[]): PagePrevie
     const gapVariance = hGaps.length ? Math.max(...hGaps) - Math.min(...hGaps) : 0;
     const isGrid = row.length >= 3 && widthVariance <= 4 && gapVariance <= 4;
     containers.push({
-      x: rb.x - 3,
-      y: rb.y - 3,
-      width: rb.width + 6,
-      height: rb.height + 6,
+      x: rb.x - 6,
+      y: rb.y - 6,
+      width: rb.width + 12,
+      height: rb.height + 12,
       kind: isGrid ? "grid" : "stack-row",
       count: row.length,
       gap: Math.round(mode(hGaps)),
