@@ -1,5 +1,12 @@
 import type { Page, CanvasNode, Edge, NodeType } from "./scene";
 import { defaultStyleFor, defaultSizeFor } from "./scene";
+import {
+  layoutPage,
+  fallbackPageIA,
+  type IADocument,
+  type IANode,
+  type IAPage,
+} from "./layout";
 
 interface ProviderConfig {
   enabled: boolean;
@@ -26,41 +33,54 @@ const loadProviders = (): ProvidersState | null => {
   }
 };
 
-const SYSTEM_PROMPT = `You are a senior product designer. Given a short product brief, design a multi-screen wireframe and the page-flow connecting them.
+// =================================================================
+// Two-pass generation
+//   Pass 1 — INFORMATION ARCHITECTURE: AI emits semantic IA tree.
+//   Pass 2 — LAYOUT: deterministic engine in /lib/layout.ts.
+// This eliminates absolute-position overlaps and "AI-y" misalignment.
+// =================================================================
 
-Return STRICT JSON matching this TypeScript shape, and nothing else (no prose, no code fences):
+const IA_SYSTEM_PROMPT = `You are a senior product designer. Given a brief, design a multi-screen wireframe expressed as an ABSTRACT INFORMATION ARCHITECTURE — a tree of layout primitives. A separate layout engine will compute pixel positions, so you MUST NOT emit any coordinates.
+
+Return STRICT JSON, no prose, no code fences:
 
 {
   "pages": [
-    { "id": "string", "name": "string", "description": "string" }
-  ],
-  "nodes": [
     {
-      "pageId": "string",         // must match a page id above
-      "type": "box" | "text" | "image" | "button" | "input",
-      "x": number,                // 0..380, relative to page
-      "y": number,                // 0..680, relative to page
-      "width": number,
-      "height": number,
-      "content": "string"          // text/button label, input placeholder, optional for box/image
+      "id": "kebab-case-id",
+      "name": "Display Name",
+      "root": <Container>
     }
   ],
-  "edges": [
-    { "from": "pageId", "to": "pageId", "label": "string" }
-  ]
+  "edges": [ { "from": "page-id", "to": "page-id", "label": "user action" } ]
 }
 
-Rules:
-- Page canvas is 420 wide x 720 tall. Keep nodes inside with 20px padding.
-- Generate 3-6 pages that cover the user's brief end-to-end (e.g. landing, sign-in, dashboard, settings).
-- Per page, generate 6-14 elements forming a realistic wireframe (header, content, primary action).
-- Use \`text\` for labels/headings, \`input\` for fields, \`button\` for CTAs, \`image\` for media placeholders, \`box\` as containers/cards.
-- Edges express user navigation (e.g. landing -> sign in, sign in -> dashboard). 2-6 edges total.
-- Use short, lowercase, kebab-case page ids like "landing", "sign-in", "dashboard".`;
+A <Container> is one of:
+  { "kind": "stack", "direction": "column"|"row", "gap": 1..4, "padding": 0..3, "children": [<Node>, ...] }
+  { "kind": "grid",  "columns": 2|3|4, "gap": 1..3, "padding": 0..2, "children": [<Node>, ...] }
+
+A <Leaf> is:
+  { "kind": "leaf", "type": "text"|"button"|"input"|"image"|"box",
+    "content": "...",                   // text content / placeholder / label
+    "textStyle": "display|h1|h2|h3|body|caption|label",  // ONLY for text
+    "height": 60,                       // optional hint, primarily for image/box
+    "widthFrac": 1                      // 0.25..1, only inside row stacks
+  }
+
+Hard rules:
+- Page area is 420x720. The root container should be a vertical "stack".
+- 4-7 pages covering the brief (e.g. landing, sign-in, browse, detail, checkout, success).
+- Per page: 8-18 leaves total. Mix headings/body/CTAs/inputs/images/cards.
+- ALWAYS use "textStyle" on text leaves. Headings ONCE per section.
+- Use "row" stacks for chip rows / button rows / two-column layouts.
+- Use "grid" for card grids (e.g. menu items, product cards) with 2-3 columns.
+- Group related items in nested stacks — DO NOT flatten everything.
+- Edges express navigation. 3-8 edges total.
+- Use short kebab-case page ids ("landing", "sign-in", "menu", "checkout").
+- NEVER emit x, y, width, height as coordinates. Only height as a size HINT for image/box.`;
 
 const buildUrl = (cfg: ProviderConfig, providerId: string) => {
   if (providerId === "azure") {
-    // https://RESOURCE.openai.azure.com/openai/deployments/DEPLOYMENT/chat/completions?api-version=...
     const base = cfg.baseUrl.replace(/\/$/, "");
     return `${base}/openai/deployments/${cfg.deployment}/chat/completions?api-version=${cfg.apiVersion ?? "2024-08-01-preview"}`;
   }
@@ -75,70 +95,34 @@ const buildUrl = (cfg: ProviderConfig, providerId: string) => {
 
 const buildHeaders = (cfg: ProviderConfig, providerId: string): HeadersInit => {
   const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (providerId === "azure") {
-    h["api-key"] = cfg.apiKey;
-  } else if (providerId === "anthropic") {
+  if (providerId === "azure") h["api-key"] = cfg.apiKey;
+  else if (providerId === "anthropic") {
     h["x-api-key"] = cfg.apiKey;
     h["anthropic-version"] = "2023-06-01";
     h["anthropic-dangerous-direct-browser-access"] = "true";
   } else if (providerId === "google") {
-    // key in URL
+    /* key in URL */
   } else if (cfg.apiKey) {
     h["Authorization"] = `Bearer ${cfg.apiKey}`;
   }
   return h;
 };
 
-const buildBody = (cfg: ProviderConfig, providerId: string, prompt: string) => {
-  if (providerId === "anthropic") {
-    return {
-      model: cfg.model,
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: prompt }],
-    };
-  }
-  if (providerId === "google") {
-    return {
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.7 },
-    };
-  }
-  // openai-compatible (openai, azure, mistral, groq, deepseek, openrouter, xai, ollama, custom)
-  return {
-    model: providerId === "azure" ? undefined : cfg.model,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-  };
-};
-
 const extractText = (providerId: string, json: any): string => {
-  if (providerId === "anthropic") {
-    return json?.content?.[0]?.text ?? "";
-  }
-  if (providerId === "google") {
+  if (providerId === "anthropic") return json?.content?.[0]?.text ?? "";
+  if (providerId === "google")
     return json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join("") ?? "";
-  }
   return json?.choices?.[0]?.message?.content ?? "";
 };
 
 const tryParseJson = (text: string): any => {
-  // strip code fences if any
   const cleaned = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
   try {
     return JSON.parse(cleaned);
   } catch {
-    // try to find first { ... last }
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      return JSON.parse(cleaned.slice(start, end + 1));
-    }
+    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
     throw new Error("Model response was not valid JSON");
   }
 };
@@ -150,66 +134,7 @@ export interface GeneratedScene {
 }
 
 const PAGE_GAP = 80;
-
 const uid = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
-
-const normalize = (raw: any): GeneratedScene => {
-  if (!raw || !Array.isArray(raw.pages)) throw new Error("AI response missing pages");
-
-  const pageIdMap = new Map<string, string>(); // model id -> internal id
-  const pages: Page[] = raw.pages.map((p: any, i: number) => {
-    const id = uid("p");
-    pageIdMap.set(String(p.id ?? p.name ?? i), id);
-    return {
-      id,
-      name: String(p.name ?? `Page ${i + 1}`),
-      position: { x: 120 + i * (420 + PAGE_GAP), y: 120 },
-      size: { width: 420, height: 720 },
-      background: "#0f0d0b",
-    };
-  });
-
-  const nodes: CanvasNode[] = [];
-  (raw.nodes ?? []).forEach((n: any, idx: number) => {
-    const pageId = pageIdMap.get(String(n.pageId));
-    if (!pageId) return;
-    const type: NodeType = (["box", "text", "image", "button", "input"] as NodeType[]).includes(n.type)
-      ? n.type
-      : "box";
-    const ds = defaultSizeFor(type);
-    nodes.push({
-      id: uid("n"),
-      pageId,
-      type,
-      position: {
-        x: Math.max(0, Math.min(400, Number(n.x ?? 20))),
-        y: Math.max(0, Math.min(700, Number(n.y ?? 20))),
-      },
-      size: {
-        width: Math.max(20, Number(n.width ?? ds.width)),
-        height: Math.max(20, Number(n.height ?? ds.height)),
-      },
-      style: defaultStyleFor(type),
-      content: n.content !== undefined ? String(n.content) : undefined,
-      zIndex: idx + 1,
-    });
-  });
-
-  const edges: Edge[] = [];
-  (raw.edges ?? []).forEach((e: any) => {
-    const from = pageIdMap.get(String(e.from));
-    const to = pageIdMap.get(String(e.to));
-    if (!from || !to || from === to) return;
-    edges.push({
-      id: uid("e"),
-      fromPageId: from,
-      toPageId: to,
-      label: e.label ? String(e.label) : undefined,
-    });
-  });
-
-  return { pages, nodes, edges };
-};
 
 async function callProvider(prompt: string, system: string): Promise<string> {
   const state = loadProviders();
@@ -217,17 +142,13 @@ async function callProvider(prompt: string, system: string): Promise<string> {
   const providerId = state.active;
   const cfg = state.providers[providerId];
   if (!cfg) throw new Error("Active provider not found.");
-  if (providerId !== "ollama" && !cfg.apiKey) {
+  if (providerId !== "ollama" && !cfg.apiKey)
     throw new Error(`Add an API key for ${providerId} in Settings.`);
-  }
-  if (providerId === "azure" && !cfg.deployment) {
+  if (providerId === "azure" && !cfg.deployment)
     throw new Error("Azure OpenAI requires a deployment name.");
-  }
 
   const url = buildUrl(cfg, providerId);
   const headers = buildHeaders(cfg, providerId);
-  // buildBody uses module-scoped SYSTEM_PROMPT, so swap temporarily by passing
-  // the system through the messages directly when not using the wireframe shape.
   let body: any;
   if (providerId === "anthropic") {
     body = {
@@ -269,19 +190,83 @@ async function callProvider(prompt: string, system: string): Promise<string> {
   return text;
 }
 
-export const generateWireframe = async (brief: string): Promise<GeneratedScene> => {
-  rememberPrompt(brief);
-  const text = await callProvider(brief, SYSTEM_PROMPT);
-  return normalize(tryParseJson(text));
+const sanitizeIA = (n: any): IANode => {
+  if (!n || typeof n !== "object") return { kind: "leaf", type: "box" };
+  if (n.kind === "stack" || n.kind === "grid") {
+    return {
+      kind: n.kind,
+      direction: n.direction === "row" ? "row" : "column",
+      gap: typeof n.gap === "number" ? Math.max(0, Math.min(4, n.gap)) : 2,
+      padding: typeof n.padding === "number" ? Math.max(0, Math.min(3, n.padding)) : 0,
+      columns: typeof n.columns === "number" ? Math.max(1, Math.min(4, n.columns)) : undefined,
+      children: Array.isArray(n.children) ? n.children.map(sanitizeIA) : [],
+    };
+  }
+  // leaf
+  const validTypes: NodeType[] = ["box", "text", "image", "button", "input"];
+  const type: NodeType = validTypes.includes(n.type) ? n.type : "box";
+  return {
+    kind: "leaf",
+    type,
+    content: n.content !== undefined ? String(n.content) : undefined,
+    textStyle: n.textStyle,
+    height: typeof n.height === "number" ? n.height : undefined,
+    widthFrac: typeof n.widthFrac === "number" ? n.widthFrac : undefined,
+  };
 };
 
-// ---------- Single-page regeneration ----------
+const normalizeIA = (raw: any): GeneratedScene => {
+  if (!raw || !Array.isArray(raw.pages)) throw new Error("AI response missing pages");
+  const idMap = new Map<string, string>();
+  const pages: Page[] = [];
+  const nodes: CanvasNode[] = [];
 
-const PAGE_REGEN_SYSTEM = `You redesign a single page in an existing multi-page wireframe.
-Return STRICT JSON: { "nodes": [ { "type", "x", "y", "width", "height", "content" } ] }
-- Page canvas is 420x720, keep nodes inside with 20px padding.
-- 6-14 nodes. Use box/text/image/button/input only.
-- No prose, no code fences.`;
+  raw.pages.forEach((p: any, i: number) => {
+    const internalId = uid("p");
+    idMap.set(String(p.id ?? p.name ?? i), internalId);
+    const page: Page = {
+      id: internalId,
+      name: String(p.name ?? `Page ${i + 1}`),
+      position: { x: 120 + i * (420 + PAGE_GAP), y: 120 },
+      size: { width: 420, height: 720 },
+      background: "#0f0d0b",
+    };
+    pages.push(page);
+    const root = sanitizeIA(p.root ?? fallbackPageIA(page.name));
+    const laid = layoutPage({ id: internalId, name: page.name, root } as IAPage, internalId);
+    nodes.push(...laid.nodes);
+  });
+
+  const edges: Edge[] = [];
+  (raw.edges ?? []).forEach((e: any) => {
+    const from = idMap.get(String(e.from));
+    const to = idMap.get(String(e.to));
+    if (!from || !to || from === to) return;
+    edges.push({
+      id: uid("e"),
+      fromPageId: from,
+      toPageId: to,
+      label: e.label ? String(e.label) : undefined,
+    });
+  });
+
+  return { pages, nodes, edges };
+};
+
+export const generateWireframe = async (brief: string): Promise<GeneratedScene> => {
+  rememberPrompt(brief);
+  const text = await callProvider(brief, IA_SYSTEM_PROMPT);
+  return normalizeIA(tryParseJson(text));
+};
+
+// ---------- Single-page regeneration (also IA-based) ----------
+
+const PAGE_REGEN_SYSTEM = `You redesign ONE page of a wireframe using the same IA primitives.
+Return STRICT JSON: { "root": <Container> } — no coordinates.
+Containers: stack (column|row, gap, padding) or grid (columns, gap).
+Leaves: { kind:"leaf", type, content, textStyle, height?, widthFrac? }.
+Page area 420x720. 8-18 leaves, real product copy, semantic textStyles.
+No prose, no code fences.`;
 
 export interface RegeneratedNodes {
   nodes: CanvasNode[];
@@ -295,39 +280,18 @@ export const regeneratePage = async (
   const userMsg = `Page name: "${pageName}"\nBrief: ${brief}`;
   const text = await callProvider(userMsg, PAGE_REGEN_SYSTEM);
   const raw = tryParseJson(text);
-  if (!raw || !Array.isArray(raw.nodes)) throw new Error("AI response missing nodes");
-  const nodes: CanvasNode[] = raw.nodes.map((n: any, idx: number) => {
-    const type: NodeType = (["box", "text", "image", "button", "input"] as NodeType[]).includes(n.type)
-      ? n.type
-      : "box";
-    const ds = defaultSizeFor(type);
-    return {
-      id: uid("n"),
-      pageId,
-      type,
-      position: {
-        x: Math.max(0, Math.min(400, Number(n.x ?? 20))),
-        y: Math.max(0, Math.min(700, Number(n.y ?? 20))),
-      },
-      size: {
-        width: Math.max(20, Number(n.width ?? ds.width)),
-        height: Math.max(20, Number(n.height ?? ds.height)),
-      },
-      style: defaultStyleFor(type),
-      content: n.content !== undefined ? String(n.content) : undefined,
-      zIndex: idx + 1,
-    };
-  });
-  return { nodes };
+  const root = sanitizeIA(raw.root ?? fallbackPageIA(pageName));
+  const laid = layoutPage({ id: pageId, name: pageName, root } as IAPage, pageId);
+  return { nodes: laid.nodes };
 };
 
 // ---------- Inline edit on a single node ----------
 
 const INLINE_EDIT_SYSTEM = `You receive a single UI element from a wireframe and an instruction.
 Return STRICT JSON describing the new state of that element only:
-{ "type": "box|text|image|button|input", "x": number, "y": number,
-  "width": number, "height": number, "content": "string", "background": "#hex",
-  "color": "#hex", "fontSize": number }
+{ "type": "box|text|image|button|input", "content": "string",
+  "background": "#hex", "color": "#hex", "fontSize": number,
+  "textStyle": "display|h1|h2|h3|body|caption|label" }
 Only include fields you actually changed. No prose, no code fences.`;
 
 export interface InlineEdit {
@@ -336,6 +300,7 @@ export interface InlineEdit {
   size?: { width: number; height: number };
   content?: string;
   style?: Partial<CanvasNode["style"]>;
+  textStyle?: CanvasNode["textStyle"];
 }
 
 export const inlineEditNode = async (
@@ -345,14 +310,11 @@ export const inlineEditNode = async (
   const userMsg = `Element:\n${JSON.stringify(
     {
       type: node.type,
-      x: Math.round(node.position.x),
-      y: Math.round(node.position.y),
-      width: node.size.width,
-      height: node.size.height,
       content: node.content,
       background: node.style.background,
       color: node.style.color,
       fontSize: node.style.fontSize,
+      textStyle: node.textStyle,
     },
     null,
     2,
@@ -363,25 +325,107 @@ export const inlineEditNode = async (
   if (raw.type && (["box", "text", "image", "button", "input"] as NodeType[]).includes(raw.type)) {
     patch.type = raw.type;
   }
-  if (typeof raw.x === "number" || typeof raw.y === "number") {
-    patch.position = {
-      x: typeof raw.x === "number" ? raw.x : node.position.x,
-      y: typeof raw.y === "number" ? raw.y : node.position.y,
-    };
-  }
-  if (typeof raw.width === "number" || typeof raw.height === "number") {
-    patch.size = {
-      width: typeof raw.width === "number" ? raw.width : node.size.width,
-      height: typeof raw.height === "number" ? raw.height : node.size.height,
-    };
-  }
   if (typeof raw.content === "string") patch.content = raw.content;
   const style: Partial<CanvasNode["style"]> = {};
   if (typeof raw.background === "string") style.background = raw.background;
   if (typeof raw.color === "string") style.color = raw.color;
   if (typeof raw.fontSize === "number") style.fontSize = raw.fontSize;
   if (Object.keys(style).length) patch.style = style;
+  if (
+    typeof raw.textStyle === "string" &&
+    ["display", "h1", "h2", "h3", "body", "caption", "label"].includes(raw.textStyle)
+  ) {
+    patch.textStyle = raw.textStyle;
+  }
   return patch;
+};
+
+// ---------- Vision-grounded auto-fix pass ----------
+//
+// We render each page to a JSON description (faster + cheaper than screenshots,
+// and works on any provider) and ask the model to flag issues + propose
+// per-node patches. A real screenshot path would require canvas->image; we
+// surface the JSON-grounded version here as a working MVP.
+
+const AUTOFIX_SYSTEM = `You are a UI quality reviewer. You receive a JSON description of a single wireframe page (page size 420x720 with elements at absolute coords). Find:
+- Overlapping elements (rects intersect)
+- Out-of-bounds elements
+- Text that is too long for its width
+- Poor contrast (text color vs background)
+- Misalignment from the 8px grid
+
+Return STRICT JSON:
+{ "fixes": [
+  { "id": "node-id", "patch": {
+      "x": number?, "y": number?, "width": number?, "height": number?,
+      "content": "string?", "color": "#hex?", "background": "#hex?", "fontSize": number?
+    }, "reason": "short" }
+] }
+Only return fixes you are confident about. Empty array is fine. No prose, no code fences.`;
+
+export interface AutoFix {
+  id: string;
+  reason: string;
+  patch: {
+    position?: { x: number; y: number };
+    size?: { width: number; height: number };
+    content?: string;
+    style?: Partial<CanvasNode["style"]>;
+  };
+}
+
+export const autoFixPage = async (
+  page: Page,
+  pageNodes: CanvasNode[],
+): Promise<AutoFix[]> => {
+  const desc = {
+    page: { name: page.name, width: page.size.width, height: page.size.height, background: page.background },
+    nodes: pageNodes.map((n) => ({
+      id: n.id,
+      type: n.type,
+      x: Math.round(n.position.x),
+      y: Math.round(n.position.y),
+      width: Math.round(n.size.width),
+      height: Math.round(n.size.height),
+      content: n.content,
+      background: n.style.background,
+      color: n.style.color,
+      fontSize: n.style.fontSize,
+    })),
+  };
+  const text = await callProvider(JSON.stringify(desc), AUTOFIX_SYSTEM);
+  const raw = tryParseJson(text);
+  const fixes: AutoFix[] = [];
+  for (const f of raw.fixes ?? []) {
+    if (!f.id || !f.patch) continue;
+    const patch: AutoFix["patch"] = {};
+    const style: Partial<CanvasNode["style"]> = {};
+    if (typeof f.patch.x === "number" || typeof f.patch.y === "number") {
+      const orig = pageNodes.find((n) => n.id === f.id);
+      if (orig) {
+        patch.position = {
+          x: typeof f.patch.x === "number" ? f.patch.x : orig.position.x,
+          y: typeof f.patch.y === "number" ? f.patch.y : orig.position.y,
+        };
+      }
+    }
+    if (typeof f.patch.width === "number" || typeof f.patch.height === "number") {
+      const orig = pageNodes.find((n) => n.id === f.id);
+      if (orig) {
+        patch.size = {
+          width: typeof f.patch.width === "number" ? f.patch.width : orig.size.width,
+          height: typeof f.patch.height === "number" ? f.patch.height : orig.size.height,
+        };
+      }
+    }
+    if (typeof f.patch.content === "string") patch.content = f.patch.content;
+    if (typeof f.patch.background === "string") style.background = f.patch.background;
+    if (typeof f.patch.color === "string") style.color = f.patch.color;
+    if (typeof f.patch.fontSize === "number") style.fontSize = f.patch.fontSize;
+    if (Object.keys(style).length) patch.style = style;
+    fixes.push({ id: f.id, reason: String(f.reason ?? ""), patch });
+  }
+  return fixes;
 };
 
 // ---------- Prompt history ----------
