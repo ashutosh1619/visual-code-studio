@@ -388,9 +388,11 @@ const Index = () => {
               </p>
             </div>
 
-            {connectMode && (
+            {(connectMode || commentMode) && (
               <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 rounded-md border border-accent/60 bg-background/90 px-3 py-1.5 text-[11px] text-accent shadow-sm">
-                Connect mode · click source page, then target
+                {connectMode
+                  ? "Connect mode · click source page, then target"
+                  : "Comment mode · click anywhere on a page to leave a note"}
               </div>
             )}
           </div>
