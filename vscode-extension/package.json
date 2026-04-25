@@ -1,0 +1,59 @@
+{
+  "name": "devcanvas",
+  "displayName": "DevCanvas",
+  "description": "Visual-first development inside VS Code. Design pages, generate flows, hand off to Copilot.",
+  "version": "0.1.0",
+  "publisher": "devcanvas",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other", "Visualization"],
+  "keywords": ["design", "wireframe", "ui builder", "ai", "copilot"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "devcanvas.open",
+        "title": "DevCanvas: Open Canvas",
+        "category": "DevCanvas"
+      },
+      {
+        "command": "devcanvas.importScene",
+        "title": "DevCanvas: Import scene.json from current workspace",
+        "category": "DevCanvas"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "devcanvas.open",
+          "group": "navigation",
+          "when": "resourceFilename == scene.json"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DevCanvas",
+      "properties": {
+        "devcanvas.studioUrl": {
+          "type": "string",
+          "default": "https://devcanvas.app",
+          "description": "URL of the DevCanvas web studio loaded inside the VS Code webview."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.5.3",
+    "@vscode/vsce": "^2.27.0"
+  }
+}

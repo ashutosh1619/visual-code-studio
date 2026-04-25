@@ -6,6 +6,18 @@ import { InspectorPanel } from "@/components/devcanvas/InspectorPanel";
 import { BottomBar } from "@/components/devcanvas/BottomBar";
 import { ProvidersDialog } from "@/components/devcanvas/ProvidersDialog";
 import { CodePreviewDialog } from "@/components/devcanvas/CodePreviewDialog";
+import { CollabLayer } from "@/components/devcanvas/CollabLayer";
+import { SharePopover } from "@/components/devcanvas/SharePopover";
+import { ExportDialog } from "@/components/devcanvas/ExportDialog";
+import {
+  loadComments,
+  saveComments,
+  PresenceChannel,
+  getOrCreateLocalPeer,
+  type Comment,
+  type PresencePeer,
+} from "@/lib/collab";
+import { useEffect } from "react";
 import {
   type CanvasNode,
   type NodeType,
@@ -135,6 +147,63 @@ const Index = () => {
   const [generatedCode, setGeneratedCode] = useState("");
   const [connectMode, setConnectMode] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [commentMode, setCommentMode] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [comments, setComments] = useState<Comment[]>(() => loadComments());
+  const [peerCount, setPeerCount] = useState(0);
+
+  // Track peer count via a lightweight presence subscription so the toolbar
+  // can show the avatar pill. The CollabLayer manages its own peer state for
+  // rendering cursors; here we only count distinct alive peers.
+  useEffect(() => {
+    const me = getOrCreateLocalPeer();
+    const ch = new PresenceChannel("default");
+    const seen = new Map<string, number>();
+    const tick = () => {
+      const cutoff = Date.now() - 5000;
+      let live = 0;
+      for (const [id, t] of seen) if (id !== me.id && t > cutoff) live++;
+      setPeerCount(live);
+    };
+    const unsub = ch.subscribe((msg) => {
+      if (msg.type === "cursor") {
+        seen.set(msg.peer.id, Date.now());
+        tick();
+      } else if (msg.type === "leave") {
+        seen.delete(msg.id);
+        tick();
+      }
+    });
+    const interval = setInterval(tick, 2000);
+    return () => {
+      unsub();
+      clearInterval(interval);
+      ch.close();
+    };
+  }, []);
+
+  // Persist comments locally
+  useEffect(() => {
+    saveComments(comments);
+  }, [comments]);
+
+  const addComment = useCallback((c: Omit<Comment, "id" | "createdAt">) => {
+    setComments((prev) => [
+      ...prev,
+      { ...c, id: `c_${Math.random().toString(36).slice(2, 8)}`, createdAt: Date.now() },
+    ]);
+  }, []);
+
+  const resolveComment = useCallback(
+    (id: string) => setComments((prev) => prev.map((c) => (c.id === id ? { ...c, resolved: true } : c))),
+    [],
+  );
+
+  const deleteComment = useCallback(
+    (id: string) => setComments((prev) => prev.filter((c) => c.id !== id)),
+    [],
+  );
 
   const selected = useMemo(
     () => nodes.find((n) => n.id === selectedIds[0]) ?? null,
@@ -265,7 +334,12 @@ const Index = () => {
           onAddPage={handleAddPage}
           connectMode={connectMode}
           onToggleConnect={() => setConnectMode((c) => !c)}
+          commentMode={commentMode}
+          onToggleComment={() => setCommentMode((c) => !c)}
+          onOpenShare={() => setShareOpen(true)}
+          onOpenExport={() => setExportOpen(true)}
           generating={generating}
+          peerCount={peerCount}
         />
 
         <main className="flex flex-1 overflow-hidden">
@@ -289,6 +363,18 @@ const Index = () => {
               onConnectPages={handleConnectPages}
             />
 
+            <CollabLayer
+              roomId="default"
+              zoom={zoom}
+              cursor={cursor}
+              pages={pages}
+              comments={comments}
+              commentMode={commentMode}
+              onAddComment={addComment}
+              onResolveComment={resolveComment}
+              onDeleteComment={deleteComment}
+            />
+
             {/* Floating editorial caption */}
             <div className="pointer-events-none absolute left-6 top-6 max-w-xs">
               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">
@@ -302,9 +388,11 @@ const Index = () => {
               </p>
             </div>
 
-            {connectMode && (
+            {(connectMode || commentMode) && (
               <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 rounded-md border border-accent/60 bg-background/90 px-3 py-1.5 text-[11px] text-accent shadow-sm">
-                Connect mode · click source page, then target
+                {connectMode
+                  ? "Connect mode · click source page, then target"
+                  : "Comment mode · click anywhere on a page to leave a note"}
               </div>
             )}
           </div>
@@ -324,6 +412,14 @@ const Index = () => {
 
       <ProvidersDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <CodePreviewDialog open={codeOpen} onOpenChange={setCodeOpen} code={generatedCode} />
+      <SharePopover open={shareOpen} onOpenChange={setShareOpen} peerCount={peerCount} />
+      <ExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        pages={pages}
+        nodes={nodes}
+        edges={edges}
+      />
     </>
   );
 };

@@ -1,4 +1,4 @@
-import { Sparkles, Settings2, Code2, Wand2, Plus, ArrowRightCircle, Loader2 } from "lucide-react";
+import { Sparkles, Settings2, Code2, Wand2, Plus, ArrowRightCircle, Loader2, MessageSquarePlus, Share2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +15,12 @@ interface Props {
   onAddPage: () => void;
   connectMode: boolean;
   onToggleConnect: () => void;
+  commentMode: boolean;
+  onToggleComment: () => void;
+  onOpenShare: () => void;
+  onOpenExport: () => void;
   generating: boolean;
+  peerCount: number;
 }
 
 export const Toolbar = ({
@@ -29,7 +34,12 @@ export const Toolbar = ({
   onAddPage,
   connectMode,
   onToggleConnect,
+  commentMode,
+  onToggleComment,
+  onOpenShare,
+  onOpenExport,
   generating,
+  peerCount,
 }: Props) => {
   return (
     <div className="flex h-14 items-center justify-between border-b hairline panel-surface px-4">
@@ -40,7 +50,7 @@ export const Toolbar = ({
           </div>
           <div className="flex items-baseline gap-1.5">
             <span className="font-display text-lg leading-none">DevCanvas</span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">v0.1</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">v0.2</span>
           </div>
         </div>
         <span className="h-6 w-px bg-hairline" />
@@ -60,6 +70,17 @@ export const Toolbar = ({
           )}
         >
           <ArrowRightCircle className="h-3 w-3" /> Connect
+        </button>
+        <button
+          onClick={onToggleComment}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] transition-colors",
+            commentMode
+              ? "border-accent bg-accent text-accent-foreground"
+              : "hairline bg-rail/40 text-muted-foreground hover:border-accent/40 hover:text-foreground",
+          )}
+        >
+          <MessageSquarePlus className="h-3 w-3" /> Comment
         </button>
       </div>
 
@@ -105,6 +126,20 @@ export const Toolbar = ({
 
         <Button variant="ghost" size="sm" onClick={onOpenSettings} className="h-8">
           <Settings2 className="h-3.5 w-3.5" />
+        </Button>
+
+        <Button variant="ghost" size="sm" onClick={onOpenShare} className="h-8 gap-1.5">
+          <Share2 className="h-3.5 w-3.5" />
+          {peerCount > 0 && (
+            <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium leading-none text-accent-foreground">
+              {peerCount + 1}
+            </span>
+          )}
+        </Button>
+
+        <Button variant="outline" size="sm" onClick={onOpenExport} className="h-8">
+          <Download className="mr-1.5 h-3 w-3" />
+          Export
         </Button>
 
         <Button
