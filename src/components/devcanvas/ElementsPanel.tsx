@@ -1,5 +1,20 @@
-import { Square, Type, Image as ImageIcon, MousePointerClick, TextCursorInput, Layers, LayoutTemplate } from "lucide-react";
-import type { NodeType } from "@/lib/scene";
+import { useState } from "react";
+import {
+  Square,
+  Type,
+  Image as ImageIcon,
+  MousePointerClick,
+  TextCursorInput,
+  Layers,
+  Component,
+  Palette,
+} from "lucide-react";
+import type { CanvasNode, NodeType } from "@/lib/scene";
+import { cn } from "@/lib/utils";
+import { ComponentsPanel } from "./ComponentsPanel";
+import { TokensPanel } from "./TokensPanel";
+import type { SavedComponent } from "@/lib/components";
+import type { DesignTokens } from "@/lib/tokens";
 
 const elements: { type: NodeType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { type: "box", label: "Box", icon: Square },
@@ -9,16 +24,64 @@ const elements: { type: NodeType; label: string; icon: React.ComponentType<{ cla
   { type: "input", label: "Input", icon: TextCursorInput },
 ];
 
-export const ElementsPanel = ({ onAdd }: { onAdd: (type: NodeType) => void }) => {
+interface Props {
+  onAdd: (type: NodeType) => void;
+  selectedNodes: CanvasNode[];
+  onInsertComponent: (cmp: SavedComponent) => void;
+  themeKey: string;
+  tokens: DesignTokens;
+  onApplyPreset: (key: string) => void;
+  onUpdateTokens: (next: DesignTokens) => void;
+}
+
+type Tab = "elements" | "components" | "tokens";
+
+export const ElementsPanel = ({
+  onAdd,
+  selectedNodes,
+  onInsertComponent,
+  themeKey,
+  tokens,
+  onApplyPreset,
+  onUpdateTokens,
+}: Props) => {
+  const [tab, setTab] = useState<Tab>("elements");
+
   return (
-    <div className="flex h-full w-[260px] flex-col panel-surface border-r">
+    <div className="flex h-full w-[280px] flex-col panel-surface border-r">
       <div className="border-b hairline px-5 py-4">
         <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Library</p>
-        <h2 className="mt-1 font-display text-2xl leading-none">Elements</h2>
+        <h2 className="mt-1 font-display text-2xl leading-none">
+          {tab === "elements" ? "Elements" : tab === "components" ? "Components" : "Tokens"}
+        </h2>
+      </div>
+
+      <div className="flex border-b hairline">
+        {(
+          [
+            { id: "elements", label: "Elements", icon: Layers },
+            { id: "components", label: "Components", icon: Component },
+            { id: "tokens", label: "Tokens", icon: Palette },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1 px-2 py-2 text-[10px] uppercase tracking-wider transition-colors",
+              tab === t.id
+                ? "border-b border-accent text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <t.icon className="h-3 w-3" />
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-4">
-        <Section title="Basic" icon={Layers}>
+        {tab === "elements" && (
           <div className="grid grid-cols-2 gap-2">
             {elements.map((el) => (
               <button
@@ -33,46 +96,34 @@ export const ElementsPanel = ({ onAdd }: { onAdd: (type: NodeType) => void }) =>
               </button>
             ))}
           </div>
-        </Section>
+        )}
 
-        <Section title="Layout" icon={LayoutTemplate}>
-          <div className="space-y-1.5">
-            {["Stack", "Row", "Grid", "Section"].map((l) => (
-              <div
-                key={l}
-                className="flex items-center justify-between rounded-md border hairline bg-rail/30 px-3 py-2 text-xs text-muted-foreground"
-              >
-                <span>{l}</span>
-                <span className="text-[10px] uppercase tracking-wider opacity-50">soon</span>
-              </div>
-            ))}
-          </div>
-        </Section>
+        {tab === "components" && (
+          <ComponentsPanel
+            selectedNodes={selectedNodes}
+            onInsert={onInsertComponent}
+          />
+        )}
+
+        {tab === "tokens" && (
+          <TokensPanel
+            themeKey={themeKey}
+            tokens={tokens}
+            onApplyPreset={onApplyPreset}
+            onUpdateTokens={onUpdateTokens}
+          />
+        )}
       </div>
 
       <div className="border-t hairline px-5 py-3">
         <p className="text-[10px] leading-relaxed text-muted-foreground">
-          Drag onto the canvas, or double-click to insert at origin.
+          {tab === "elements"
+            ? "Drag onto the canvas, or double-click to insert."
+            : tab === "components"
+            ? "Save groups of elements as reusable components."
+            : "Theme the entire canvas with one click."}
         </p>
       </div>
     </div>
   );
 };
-
-const Section = ({
-  title,
-  icon: Icon,
-  children,
-}: {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) => (
-  <div className="mb-6">
-    <div className="mb-2 flex items-center gap-2 px-1">
-      <Icon className="h-3 w-3 text-muted-foreground" />
-      <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{title}</span>
-    </div>
-    {children}
-  </div>
-);
