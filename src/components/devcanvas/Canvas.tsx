@@ -473,6 +473,71 @@ export const Canvas = ({
                 )}
                 style={{ background: page.background }}
               />
+
+              {layoutPreview && (() => {
+                const pv = previewByPage.get(page.id);
+                if (!pv) return null;
+                return (
+                  <div className="pointer-events-none absolute inset-0">
+                    {/* Padding ring */}
+                    <div
+                      className="absolute rounded-sm border border-dashed"
+                      style={{
+                        left: pv.pad.x,
+                        top: pv.pad.y,
+                        width: pv.pad.width,
+                        height: pv.pad.height,
+                        borderColor: "hsl(var(--accent) / 0.35)",
+                      }}
+                    />
+                    {/* Container outlines */}
+                    {pv.containers.map((c, i) => {
+                      const isGrid = c.kind === "grid";
+                      return (
+                        <div
+                          key={`c-${i}`}
+                          className="absolute rounded-sm"
+                          style={{
+                            left: c.x,
+                            top: c.y,
+                            width: c.width,
+                            height: c.height,
+                            border: `1px dashed hsl(var(--accent) / ${isGrid ? 0.85 : 0.55})`,
+                            background: `hsl(var(--accent) / ${isGrid ? 0.06 : 0.03})`,
+                          }}
+                        >
+                          <span
+                            className="absolute -top-3 left-0 rounded-sm px-1 font-mono text-[9px] uppercase tracking-wider"
+                            style={{
+                              background: "hsl(var(--accent))",
+                              color: "hsl(var(--accent-foreground))",
+                            }}
+                          >
+                            {containerLabel(c.kind)} · {c.count}
+                            {c.gap > 0 ? ` · gap ${c.gap}` : ""}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {/* Gap chips */}
+                    {pv.gaps.map((g, i) => (
+                      <span
+                        key={`g-${i}`}
+                        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-sm px-1 font-mono text-[9px]"
+                        style={{
+                          left: g.x,
+                          top: g.y,
+                          background: "hsl(var(--background) / 0.9)",
+                          color: "hsl(var(--accent))",
+                          border: "1px solid hsl(var(--accent) / 0.4)",
+                        }}
+                      >
+                        {g.size}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
