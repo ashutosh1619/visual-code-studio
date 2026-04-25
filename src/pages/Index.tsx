@@ -546,6 +546,7 @@ const Index = () => {
             onUpdate={updateNode} onUpdateStyle={updateStyle}
             onDelete={deleteNode}
             onSelect={(id) => setSelectedIds([id])}
+            onPushToMaster={selected?.componentId ? () => propagateFromInstance(selected) : undefined}
           />
         </main>
 
