@@ -6,7 +6,7 @@
 // vocabulary (sections, stacks, grids) and computing pixels deterministically
 // here, every page is guaranteed to be aligned, padded, and readable.
 
-import type { CanvasNode, NodeType, TextStyleRole } from "./scene";
+import type { CanvasNode, NodeType, NodeData, TextStyleRole, Fidelity } from "./scene";
 import { defaultStyleFor } from "./scene";
 
 const GRID = 8;
@@ -37,6 +37,8 @@ export interface IANode {
   tone?: "surface" | "muted" | "transparent";
   /** Visual padding inside container in grid units. */
   padding?: number;
+  /** Multi-part content for primitives that need it (list-row, chip, etc.). */
+  data?: NodeData;
 }
 
 export interface IAPage {
@@ -150,9 +152,10 @@ const buildLeaf = (
   w: number,
   h: number,
   z: number,
+  fidelity: Fidelity,
 ): CanvasNode => {
   const type = (n.type ?? "box") as NodeType;
-  const style = { ...defaultStyleFor(type) };
+  const style = { ...defaultStyleFor(type, fidelity) };
   if (type === "text" && n.textStyle) {
     style.fontSize = TEXT_FONT[n.textStyle];
     if (n.textStyle === "display" || n.textStyle === "h1" || n.textStyle === "h2") {
@@ -171,6 +174,8 @@ const buildLeaf = (
     content: n.content,
     zIndex: z,
     textStyle: type === "text" ? n.textStyle : undefined,
+    data: n.data,
+    fidelity,
   };
 };
 
