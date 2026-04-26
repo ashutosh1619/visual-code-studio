@@ -186,11 +186,12 @@ const layoutNode = (
   y: number,
   w: number,
   zStart: number,
+  fidelity: Fidelity,
 ): LaidOut => {
   if (n.kind === "leaf") {
     const h = leafHeight(n, w);
     return {
-      nodes: [buildLeaf(n, pageId, x, y, w, h, zStart)],
+      nodes: [buildLeaf(n, pageId, x, y, w, h, zStart, fidelity)],
       height: h,
     };
   }
@@ -214,7 +215,7 @@ const layoutNode = (
     for (const c of children) {
       const cx = innerX + col * (cellW + gap);
       const cy = cursorY;
-      const laid = layoutNode(c, pageId, cx, cy, cellW, z + 1);
+      const laid = layoutNode(c, pageId, cx, cy, cellW, z + 1, fidelity);
       out.push(...laid.nodes);
       z += laid.nodes.length;
       rowMaxH = Math.max(rowMaxH, laid.height);
@@ -242,7 +243,7 @@ const layoutNode = (
     let rowMaxH = 0;
     for (const c of children) {
       const childW = (usableW * (c.widthFrac ?? 1)) / totalFrac;
-      const laid = layoutNode(c, pageId, cursorX, innerY, childW, z + 1);
+      const laid = layoutNode(c, pageId, cursorX, innerY, childW, z + 1, fidelity);
       out.push(...laid.nodes);
       z += laid.nodes.length;
       rowMaxH = Math.max(rowMaxH, laid.height);
@@ -254,7 +255,7 @@ const layoutNode = (
   // column
   let cursorY = innerY;
   for (const c of children) {
-    const laid = layoutNode(c, pageId, innerX, cursorY, innerW, z + 1);
+    const laid = layoutNode(c, pageId, innerX, cursorY, innerW, z + 1, fidelity);
     out.push(...laid.nodes);
     z += laid.nodes.length;
     cursorY += laid.height + gap;
@@ -268,7 +269,11 @@ export interface LaidOutPage {
   nodes: CanvasNode[];
 }
 
-export const layoutPage = (page: IAPage, pageId: string): LaidOutPage => {
+export const layoutPage = (
+  page: IAPage,
+  pageId: string,
+  fidelity: Fidelity = "wireframe",
+): LaidOutPage => {
   const { nodes } = layoutNode(
     page.root,
     pageId,
@@ -276,6 +281,7 @@ export const layoutPage = (page: IAPage, pageId: string): LaidOutPage => {
     PAGE_PAD,
     PAGE_W - PAGE_PAD * 2,
     1,
+    fidelity,
   );
   // Clip nodes that would overflow the page height — prefer letting them sit
   // at the bottom edge rather than escape the frame.
