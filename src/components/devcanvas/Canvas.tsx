@@ -445,7 +445,9 @@ export const Canvas = ({
                     isSelected ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  {page.name}
+                  {typeof page.number === "number" && page.number > 0
+                    ? `${page.number}. ${page.name}`
+                    : page.name}
                 </span>
                 <span className="font-mono text-[10px] text-muted-foreground/40">
                   {page.size.width}×{page.size.height}
