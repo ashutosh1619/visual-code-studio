@@ -634,12 +634,35 @@ export const Canvas = ({
             >
               {n.type === "text" && <span>{n.content}</span>}
               {n.type === "button" && <span>{n.content}</span>}
-              {n.type === "input" && <span className="opacity-60">{n.content}</span>}
-              {n.type === "image" && (
-                <div className="flex h-full w-full items-center justify-center text-xs opacity-40">
-                  Image
+              {n.type === "input" && (
+                <span className="opacity-60" style={{ padding: 8 }}>
+                  {n.content}
+                </span>
+              )}
+              {(n.type === "image" || n.type === "image-placeholder") && (
+                <ImagePlaceholderGlyph />
+              )}
+              {n.type === "icon-circle" && (
+                <div className="flex h-full w-full items-center justify-center">
+                  <span style={{ fontSize: Math.max(12, n.size.height * 0.4) }}>
+                    {n.data?.glyph ?? n.content ?? "★"}
+                  </span>
                 </div>
               )}
+              {n.type === "chip" && (
+                <div className="flex h-full w-full items-center justify-center px-3">
+                  <span className="truncate" style={{ fontSize: 11 }}>
+                    {n.content ?? "Chip"}
+                  </span>
+                </div>
+              )}
+              {n.type === "list-row" && <ListRowGlyph node={n} />}
+              {n.type === "card" && <CardGlyph node={n} />}
+              {n.type === "map-block" && <MapBlockGlyph />}
+              {n.type === "segmented" && <SegmentedGlyph node={n} />}
+              {n.type === "bottom-bar" && <BottomBarGlyph node={n} />}
+              {n.type === "sidebar" && <SidebarGlyph node={n} />}
+              {n.type === "stepper" && <StepperGlyph node={n} />}
 
               {selected && (
                 <>
