@@ -1,4 +1,4 @@
-import type { Page, CanvasNode, Edge, NodeType } from "./scene";
+import type { Page, CanvasNode, Edge, NodeType, Fidelity } from "./scene";
 import { defaultStyleFor, defaultSizeFor } from "./scene";
 import {
   layoutPage,
@@ -40,17 +40,13 @@ const loadProviders = (): ProvidersState | null => {
 // This eliminates absolute-position overlaps and "AI-y" misalignment.
 // =================================================================
 
-const IA_SYSTEM_PROMPT = `You are a senior product designer. Given a brief, design a multi-screen wireframe expressed as an ABSTRACT INFORMATION ARCHITECTURE — a tree of layout primitives. A separate layout engine will compute pixel positions, so you MUST NOT emit any coordinates.
+const IA_SYSTEM_PROMPT_BASE = `You are a senior product designer producing a multi-screen wireframe sheet (like a Figma frame storyboard). Given a brief, design every key screen using ABSTRACT INFORMATION ARCHITECTURE — a tree of layout primitives. A separate layout engine computes pixel positions, so you MUST NOT emit any coordinates.
 
 Return STRICT JSON, no prose, no code fences:
 
 {
   "pages": [
-    {
-      "id": "kebab-case-id",
-      "name": "Display Name",
-      "root": <Container>
-    }
+    { "id": "kebab-case-id", "name": "Display Name", "root": <Container> }
   ],
   "edges": [ { "from": "page-id", "to": "page-id", "label": "user action" } ]
 }
@@ -60,24 +56,60 @@ A <Container> is one of:
   { "kind": "grid",  "columns": 2|3|4, "gap": 1..3, "padding": 0..2, "children": [<Node>, ...] }
 
 A <Leaf> is:
-  { "kind": "leaf", "type": "text"|"button"|"input"|"image"|"box",
-    "content": "...",                   // text content / placeholder / label
+  { "kind": "leaf", "type": <PrimitiveType>, "content": "...",
     "textStyle": "display|h1|h2|h3|body|caption|label",  // ONLY for text
-    "height": 60,                       // optional hint, primarily for image/box
-    "widthFrac": 1                      // 0.25..1, only inside row stacks
+    "height": 60, "widthFrac": 1,                         // optional
+    "data": { "title": "...", "meta": "...", "trailing": "...",
+              "options": ["..."], "active": 0, "glyph": "♥", "badge": "40% OFF" }
   }
 
+PrimitiveType vocabulary — USE THESE LIBERALLY, not just text/box:
+  • text                 — headings, paragraphs, labels (always set textStyle)
+  • button               — primary CTA
+  • input                — search field / form input (use 'content' for placeholder)
+  • image-placeholder    — image area (renders mountain/sun glyph)
+  • icon-circle          — round icon button (set data.glyph for letter/symbol)
+  • chip                 — pill filter/tag (e.g. "4.0+", "Pure Veg", "Offers")
+  • list-row             — full-width row: thumb + title + meta + trailing.
+                           Set data.title/data.meta/data.trailing.
+  • card                 — product/menu/restaurant card. Set data.title/meta/trailing.
+                           Use data.badge for promo overlay (e.g. "40% OFF").
+  • map-block            — map area for tracking/location pages
+  • segmented            — tab strip. Set data.options + data.active
+  • bottom-bar           — sticky action footer (Place Order, View Cart, etc.)
+  • sidebar              — vertical nav strip (use for profile pages)
+  • stepper              — checkout/order progress. Set data.options + data.active
+  • divider              — 1px hairline separator
+  • box                  — generic surface (use sparingly)
+
+SECTION TEMPLATES — when the brief implies a domain, compose these:
+  • Search hero    → stack[ text(h1), input, row[chip x4] ]
+  • Category strip → grid(columns=4)[ stack[icon-circle,text(label)] x8 ]
+  • Card grid      → grid(columns=2)[ card x6 ] with data.title/meta/trailing
+  • List feed      → stack[ list-row x5 ]
+  • Filter rail    → stack[ text(h3 'Filters'), text(label), chip rows ]
+  • Cart summary   → stack[ list-row, divider, row[text label, text value], button ]
+  • Order tracking → stack[ map-block, stepper, list-row x3 ]
+  • Bottom nav     → bottom-bar with data.options
+  • Profile nav    → sidebar with data.options + data.active
+
 Hard rules:
-- Page area is 420x720. The root container should be a vertical "stack".
-- 4-7 pages covering the brief (e.g. landing, sign-in, browse, detail, checkout, success).
-- Per page: 8-18 leaves total. Mix headings/body/CTAs/inputs/images/cards.
-- ALWAYS use "textStyle" on text leaves. Headings ONCE per section.
-- Use "row" stacks for chip rows / button rows / two-column layouts.
-- Use "grid" for card grids (e.g. menu items, product cards) with 2-3 columns.
-- Group related items in nested stacks — DO NOT flatten everything.
-- Edges express navigation. 3-8 edges total.
-- Use short kebab-case page ids ("landing", "sign-in", "menu", "checkout").
-- NEVER emit x, y, width, height as coordinates. Only height as a size HINT for image/box.`;
+- Page area is 420x720. Root container is a vertical "stack".
+- Generate 4-8 pages covering the WHOLE flow (e.g. landing, search, detail, cart, checkout, tracking, profile, success).
+- Per page: 10-25 leaves. Use REAL product copy ("Behrouz Biryani", "₹250", "30 mins"), not lorem.
+- ALWAYS set "textStyle" on text leaves. Use h1 once per page max.
+- Use "row" stacks with widthFrac for two-column layouts (e.g. cart row: title 0.7, price 0.3).
+- Use "grid" for cards/categories (NOT for whole pages).
+- Group related items in nested stacks — DO NOT flatten.
+- Edges express navigation. 4-10 edges total.
+- NEVER emit x, y, width, height as coordinates. Only height as a HINT for image/map.`;
+
+const FIDELITY_NOTE: Record<Fidelity, string> = {
+  wireframe:
+    "\n\nFIDELITY: WIREFRAME. The output is a low-fidelity sketch — neutral surfaces, single accent color reserved for primary CTAs and badges. Use image-placeholder, not real images.",
+  hifi:
+    "\n\nFIDELITY: HI-FI. Use the full token palette. Cards may carry imagery (still as image-placeholder leaves) and richer hierarchy.",
+};
 
 const buildUrl = (cfg: ProviderConfig, providerId: string) => {
   if (providerId === "azure") {
@@ -190,6 +222,28 @@ async function callProvider(prompt: string, system: string): Promise<string> {
   return text;
 }
 
+const VALID_NODE_TYPES: NodeType[] = [
+  "box", "text", "image", "button", "input",
+  "image-placeholder", "icon-circle", "chip", "list-row", "card",
+  "map-block", "segmented", "bottom-bar", "sidebar", "stepper", "divider",
+];
+
+const sanitizeData = (raw: any) => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const data: Record<string, unknown> = {};
+  if (typeof raw.title === "string") data.title = raw.title;
+  if (typeof raw.meta === "string") data.meta = raw.meta;
+  if (typeof raw.trailing === "string") data.trailing = raw.trailing;
+  if (typeof raw.glyph === "string") data.glyph = raw.glyph.slice(0, 3);
+  if (typeof raw.badge === "string") data.badge = raw.badge.slice(0, 16);
+  if (Array.isArray(raw.options))
+    data.options = raw.options
+      .filter((o: unknown) => typeof o === "string")
+      .slice(0, 8) as string[];
+  if (typeof raw.active === "number") data.active = Math.max(0, Math.min(7, raw.active));
+  return Object.keys(data).length ? data : undefined;
+};
+
 const sanitizeIA = (n: any): IANode => {
   if (!n || typeof n !== "object") return { kind: "leaf", type: "box" };
   if (n.kind === "stack" || n.kind === "grid") {
@@ -203,8 +257,7 @@ const sanitizeIA = (n: any): IANode => {
     };
   }
   // leaf
-  const validTypes: NodeType[] = ["box", "text", "image", "button", "input"];
-  const type: NodeType = validTypes.includes(n.type) ? n.type : "box";
+  const type: NodeType = VALID_NODE_TYPES.includes(n.type) ? n.type : "box";
   return {
     kind: "leaf",
     type,
@@ -212,14 +265,16 @@ const sanitizeIA = (n: any): IANode => {
     textStyle: n.textStyle,
     height: typeof n.height === "number" ? n.height : undefined,
     widthFrac: typeof n.widthFrac === "number" ? n.widthFrac : undefined,
+    data: sanitizeData(n.data),
   };
 };
 
-const normalizeIA = (raw: any): GeneratedScene => {
+const normalizeIA = (raw: any, fidelity: Fidelity): GeneratedScene => {
   if (!raw || !Array.isArray(raw.pages)) throw new Error("AI response missing pages");
   const idMap = new Map<string, string>();
   const pages: Page[] = [];
   const nodes: CanvasNode[] = [];
+  const pageBg = fidelity === "wireframe" ? "#ffffff" : "#0f0d0b";
 
   raw.pages.forEach((p: any, i: number) => {
     const internalId = uid("p");
@@ -227,13 +282,15 @@ const normalizeIA = (raw: any): GeneratedScene => {
     const page: Page = {
       id: internalId,
       name: String(p.name ?? `Page ${i + 1}`),
+      number: i + 1,
       position: { x: 120 + i * (420 + PAGE_GAP), y: 120 },
       size: { width: 420, height: 720 },
-      background: "#0f0d0b",
+      background: pageBg,
+      kind: "screen",
     };
     pages.push(page);
     const root = sanitizeIA(p.root ?? fallbackPageIA(page.name));
-    const laid = layoutPage({ id: internalId, name: page.name, root } as IAPage, internalId);
+    const laid = layoutPage({ id: internalId, name: page.name, root } as IAPage, internalId, fidelity);
     nodes.push(...laid.nodes);
   });
 
@@ -253,19 +310,24 @@ const normalizeIA = (raw: any): GeneratedScene => {
   return { pages, nodes, edges };
 };
 
-export const generateWireframe = async (brief: string): Promise<GeneratedScene> => {
+export const generateWireframe = async (
+  brief: string,
+  fidelity: Fidelity = "wireframe",
+): Promise<GeneratedScene> => {
   rememberPrompt(brief);
-  const text = await callProvider(brief, IA_SYSTEM_PROMPT);
-  return normalizeIA(tryParseJson(text));
+  const system = IA_SYSTEM_PROMPT_BASE + FIDELITY_NOTE[fidelity];
+  const text = await callProvider(brief, system);
+  return normalizeIA(tryParseJson(text), fidelity);
 };
 
 // ---------- Single-page regeneration (also IA-based) ----------
 
-const PAGE_REGEN_SYSTEM = `You redesign ONE page of a wireframe using the same IA primitives.
+const PAGE_REGEN_SYSTEM = `You redesign ONE page of a wireframe sheet using the same IA primitives as the main generator.
 Return STRICT JSON: { "root": <Container> } — no coordinates.
 Containers: stack (column|row, gap, padding) or grid (columns, gap).
-Leaves: { kind:"leaf", type, content, textStyle, height?, widthFrac? }.
-Page area 420x720. 8-18 leaves, real product copy, semantic textStyles.
+Leaves can be text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, box.
+Use data.{title,meta,trailing,glyph,badge,options,active} to enrich list-row / card / chip / segmented / stepper.
+Page area 420x720. 10-25 leaves, REAL product copy, semantic textStyles.
 No prose, no code fences.`;
 
 export interface RegeneratedNodes {
@@ -276,12 +338,13 @@ export const regeneratePage = async (
   pageName: string,
   brief: string,
   pageId: string,
+  fidelity: Fidelity = "wireframe",
 ): Promise<RegeneratedNodes> => {
   const userMsg = `Page name: "${pageName}"\nBrief: ${brief}`;
   const text = await callProvider(userMsg, PAGE_REGEN_SYSTEM);
   const raw = tryParseJson(text);
   const root = sanitizeIA(raw.root ?? fallbackPageIA(pageName));
-  const laid = layoutPage({ id: pageId, name: pageName, root } as IAPage, pageId);
+  const laid = layoutPage({ id: pageId, name: pageName, root } as IAPage, pageId, fidelity);
   return { nodes: laid.nodes };
 };
 

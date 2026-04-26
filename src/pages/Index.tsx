@@ -22,6 +22,7 @@ import {
   type NodeType,
   type Page,
   type Edge,
+  type Fidelity,
   defaultContentFor,
   defaultSizeFor,
   defaultStyleFor,
@@ -29,6 +30,8 @@ import {
 } from "@/lib/scene";
 import { generateCode } from "@/lib/codegen";
 import { generateWireframe, regeneratePage, autoFixPage } from "@/lib/ai";
+import { tileStoryboard } from "@/lib/storyboard";
+import { createDesignSystemPage, buildDesignSystemNodes } from "@/lib/designSystemSheet";
 import {
   PRESET_THEMES,
   applyTokensToScene,
@@ -133,6 +136,8 @@ const Index = () => {
   const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
   const [autoFixing, setAutoFixing] = useState(false);
   const [layoutPreview, setLayoutPreview] = useState(false);
+  const [fidelity, setFidelity] = useState<Fidelity>("wireframe");
+  const [includeDesignSystem, setIncludeDesignSystem] = useState(true);
 
   // Tokens
   const [{ themeKey, tokens }, setTheme] = useState(() => loadTokens());
@@ -280,18 +285,45 @@ const Index = () => {
     if (!prompt.trim()) { toast.error("Describe the product you want to design"); return; }
     setGenerating(true);
     try {
-      const result = await generateWireframe(prompt.trim());
-      const themed = applyTokensToScene({ pages: result.pages, nodes: result.nodes }, tokens);
+      const result = await generateWireframe(prompt.trim(), fidelity);
+      // Optionally prepend a design-system sheet (Page 0).
+      let pagesOut: Page[] = result.pages;
+      let nodesOut: CanvasNode[] = result.nodes;
+      if (includeDesignSystem) {
+        const dsPage = createDesignSystemPage();
+        const dsNodes = buildDesignSystemNodes(dsPage, tokens, fidelity);
+        pagesOut = [dsPage, ...pagesOut];
+        nodesOut = [...dsNodes, ...nodesOut];
+      }
+      // Tile every page into a storyboard grid (rows of 4).
+      pagesOut = tileStoryboard(pagesOut, { cols: 4 });
+      // Apply tokens (only if hi-fi; for wireframe keep monochrome look).
+      const themed = fidelity === "hifi"
+        ? applyTokensToScene({ pages: pagesOut, nodes: nodesOut }, tokens)
+        : { pages: pagesOut, nodes: nodesOut };
       setScene({ pages: themed.pages, nodes: themed.nodes, edges: result.edges });
       setSelectedIds([]);
       setSelectedPageId(themed.pages[0]?.id ?? null);
-      const totalWidth = themed.pages.reduce((s, p) => s + p.size.width + 80, 0) + 240;
-      setZoom(Math.max(0.4, Math.min(0.9, 1400 / totalWidth)));
+      // Zoom to fit the storyboard width.
+      const maxX = Math.max(...themed.pages.map((p) => p.position.x + p.size.width));
+      const minX = Math.min(...themed.pages.map((p) => p.position.x));
+      setZoom(Math.max(0.18, Math.min(0.7, (window.innerWidth - 600) / (maxX - minX + 240))));
       commit("Generate wireframe");
       toast.success(`${themed.pages.length} pages · ${result.edges.length} flows generated`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed", { duration: 5000 });
     } finally { setGenerating(false); }
+  };
+
+  const handleTileStoryboard = () => {
+    if (pages.length === 0) {
+      toast.info("Nothing to tile yet");
+      return;
+    }
+    const tiled = tileStoryboard(pages, { cols: 4 });
+    setScene((s) => ({ ...s, pages: tiled }));
+    commit("Tile storyboard");
+    toast.success("Pages tiled");
   };
 
   const handleRegeneratePage = async (pageId: string) => {
@@ -300,8 +332,10 @@ const Index = () => {
     setRegeneratingPageId(pageId);
     try {
       const brief = prompt.trim() || `Redesign the "${page.name}" page`;
-      const result = await regeneratePage(page.name, brief, pageId);
-      const themed = applyTokensToScene({ pages: [page], nodes: result.nodes }, tokens);
+      const result = await regeneratePage(page.name, brief, pageId, fidelity);
+      const themed = fidelity === "hifi"
+        ? applyTokensToScene({ pages: [page], nodes: result.nodes }, tokens)
+        : { pages: [page], nodes: result.nodes };
       setScene((s) => ({ ...s, nodes: [...s.nodes.filter((n) => n.pageId !== pageId), ...themed.nodes] }));
       commit(`Regenerate ${page.name}`);
       toast.success(`Regenerated ${page.name}`);
@@ -486,6 +520,11 @@ const Index = () => {
           generating={generating} peerCount={peerCount}
           layoutPreview={layoutPreview}
           onToggleLayoutPreview={() => setLayoutPreview((v) => !v)}
+          fidelity={fidelity}
+          onToggleFidelity={() => setFidelity((f) => (f === "wireframe" ? "hifi" : "wireframe"))}
+          includeDesignSystem={includeDesignSystem}
+          onToggleDesignSystem={() => setIncludeDesignSystem((v) => !v)}
+          onTileStoryboard={handleTileStoryboard}
         />
 
         <main className="flex flex-1 overflow-hidden">

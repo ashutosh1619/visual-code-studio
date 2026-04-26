@@ -1,4 +1,21 @@
-export type NodeType = "box" | "text" | "image" | "button" | "input";
+export type NodeType =
+  | "box"
+  | "text"
+  | "image"
+  | "button"
+  | "input"
+  // ---- wireframe primitives ----
+  | "image-placeholder" // grey box with mountain + sun glyph
+  | "icon-circle"        // circle with optional letter / lucide-style glyph
+  | "chip"               // pill with label, used for filters/tags
+  | "list-row"           // thumb + title + meta + trailing price/CTA
+  | "card"               // generic card surface (acts like box but rounded + shadowed)
+  | "map-block"          // checkered/lined map area with pin
+  | "segmented"          // tab strip — pipe-separated content choices
+  | "bottom-bar"         // sticky bottom action bar
+  | "sidebar"            // vertical nav strip
+  | "stepper"            // horizontal step indicator (1 ─ 2 ─ 3)
+  | "divider";           // 1px hairline
 
 /** Semantic typographic role; pulled from token scale at render-time when set. */
 export type TextStyleRole =
@@ -10,6 +27,9 @@ export type TextStyleRole =
   | "caption"
   | "label";
 
+/** Visual fidelity for generation + rendering. */
+export type Fidelity = "wireframe" | "hifi";
+
 /**
  * A subset of style props that can be bound to a token path.
  * Example: tokenRefs.background = "colors.surface"
@@ -20,6 +40,21 @@ export interface TokenRefs {
   borderColor?: string;
   borderRadius?: string; // e.g. "radius.md"
   fontSize?: string; // e.g. "type.h2"
+}
+
+/** Optional structured payload for primitives that have multi-part content. */
+export interface NodeData {
+  /** list-row */
+  title?: string;
+  meta?: string;
+  trailing?: string;
+  /** chip / segmented / stepper */
+  options?: string[];
+  active?: number;
+  /** icon-circle / image-placeholder */
+  glyph?: string; // single character or short token
+  /** card */
+  badge?: string;
 }
 
 export interface CanvasNode {
@@ -53,15 +88,23 @@ export interface CanvasNode {
   componentId?: string;
   /** Style/content props the user manually overrode on this instance. */
   instanceOverrides?: Array<keyof CanvasNode | `style.${string}`>;
+  /** Multi-part content for list rows, chips, etc. */
+  data?: NodeData;
+  /** Fidelity hint — wireframe primitives render in monochrome mode. */
+  fidelity?: Fidelity;
 }
 
 export interface Page {
   id: string;
   name: string;
+  /** Display number on the storyboard (1-indexed). 0 = design-system sheet. */
+  number?: number;
   /** Top-left of the page frame on the infinite canvas. */
   position: { x: number; y: number };
   size: { width: number; height: number };
   background?: string;
+  /** Mark special pages (e.g. design-system sheet) so they get a wider frame. */
+  kind?: "screen" | "design-system";
 }
 
 /** A directed flow connection from one page to another (or from a node to a page). */
@@ -80,7 +123,139 @@ export interface Scene {
   edges: Edge[];
 }
 
-export const defaultStyleFor = (type: NodeType): CanvasNode["style"] => {
+// =====================================================================
+// Default styles
+// We keep two looks: "wireframe" (monochrome, the screenshot reference)
+// and "hifi" (current colored look). The renderer chooses which to use
+// based on node.fidelity.
+// =====================================================================
+
+const WIREFRAME = {
+  paper: "#ffffff",
+  surface: "#f7f7f7",
+  surfaceMuted: "#ececec",
+  border: "#d6d6d6",
+  borderStrong: "#b8b8b8",
+  text: "#1a1a1a",
+  textMuted: "#7a7a7a",
+  accent: "#ee4f3a",
+  accentText: "#ffffff",
+};
+
+export const wireframePalette = WIREFRAME;
+
+export const defaultStyleFor = (
+  type: NodeType,
+  fidelity: Fidelity = "hifi",
+): CanvasNode["style"] => {
+  if (fidelity === "wireframe") {
+    switch (type) {
+      case "text":
+        return { color: WIREFRAME.text, fontSize: 14, fontWeight: 400 };
+      case "button":
+        return {
+          background: WIREFRAME.accent,
+          color: WIREFRAME.accentText,
+          borderRadius: 4,
+          padding: 10,
+          fontSize: 13,
+          fontWeight: 500,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        };
+      case "input":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.textMuted,
+          borderRadius: 4,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+          padding: 8,
+          fontSize: 12,
+        };
+      case "image":
+      case "image-placeholder":
+        return {
+          background: WIREFRAME.surface,
+          borderRadius: 4,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+      case "chip":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+          padding: 6,
+          fontSize: 11,
+        };
+      case "icon-circle":
+        return {
+          background: WIREFRAME.surface,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+      case "list-row":
+      case "card":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+      case "map-block":
+        return {
+          background: WIREFRAME.surface,
+          borderRadius: 4,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+      case "segmented":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 4,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+          fontSize: 11,
+        };
+      case "bottom-bar":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+      case "sidebar":
+        return {
+          background: WIREFRAME.surface,
+          color: WIREFRAME.text,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+      case "stepper":
+        return { color: WIREFRAME.textMuted, fontSize: 11 };
+      case "divider":
+        return {
+          background: WIREFRAME.border,
+        };
+      case "box":
+      default:
+        return {
+          background: WIREFRAME.paper,
+          borderRadius: 4,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+    }
+  }
+
+  // ---------- hifi (legacy) ----------
   switch (type) {
     case "text":
       return { color: "#e9e4d8", fontSize: 16, fontWeight: 400 };
@@ -107,7 +282,52 @@ export const defaultStyleFor = (type: NodeType): CanvasNode["style"] => {
         fontSize: 14,
       };
     case "image":
+    case "image-placeholder":
       return { background: "#2a2622", borderRadius: 8 };
+    case "chip":
+      return {
+        background: "#1f1c19",
+        color: "#e9e4d8",
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: "#3a342e",
+        padding: 6,
+        fontSize: 12,
+      };
+    case "icon-circle":
+      return {
+        background: "#2a2622",
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: "#3a342e",
+      };
+    case "list-row":
+    case "card":
+      return {
+        background: "#1a1714",
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#2a2622",
+      };
+    case "map-block":
+      return { background: "#1a1714", borderRadius: 8, borderWidth: 1, borderColor: "#2a2622" };
+    case "segmented":
+      return {
+        background: "#1f1c19",
+        color: "#e9e4d8",
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: "#3a342e",
+        fontSize: 12,
+      };
+    case "bottom-bar":
+      return { background: "#1a1714", color: "#e9e4d8", borderWidth: 1, borderColor: "#2a2622" };
+    case "sidebar":
+      return { background: "#15120f", color: "#e9e4d8", borderWidth: 1, borderColor: "#2a2622" };
+    case "stepper":
+      return { color: "#9b9588", fontSize: 12 };
+    case "divider":
+      return { background: "#2a2622" };
     case "box":
     default:
       return {
@@ -127,6 +347,10 @@ export const defaultContentFor = (type: NodeType): string | undefined => {
       return "Button";
     case "input":
       return "Placeholder…";
+    case "chip":
+      return "Filter";
+    case "card":
+      return "Card title";
     default:
       return undefined;
   }
@@ -141,7 +365,28 @@ export const defaultSizeFor = (type: NodeType) => {
     case "input":
       return { width: 220, height: 40 };
     case "image":
+    case "image-placeholder":
       return { width: 220, height: 160 };
+    case "chip":
+      return { width: 96, height: 28 };
+    case "icon-circle":
+      return { width: 56, height: 56 };
+    case "list-row":
+      return { width: 360, height: 72 };
+    case "card":
+      return { width: 200, height: 160 };
+    case "map-block":
+      return { width: 360, height: 200 };
+    case "segmented":
+      return { width: 360, height: 36 };
+    case "bottom-bar":
+      return { width: 420, height: 64 };
+    case "sidebar":
+      return { width: 200, height: 720 };
+    case "stepper":
+      return { width: 360, height: 24 };
+    case "divider":
+      return { width: 360, height: 1 };
     default:
       return { width: 280, height: 180 };
   }
@@ -149,10 +394,12 @@ export const defaultSizeFor = (type: NodeType) => {
 
 export const defaultPageSize = { width: 420, height: 720 };
 
-export const newPage = (name: string, x: number, y: number): Page => ({
+export const newPage = (name: string, x: number, y: number, number?: number): Page => ({
   id: `p_${Math.random().toString(36).slice(2, 8)}`,
   name,
+  number,
   position: { x, y },
   size: { ...defaultPageSize },
-  background: "#0f0d0b",
+  background: "#ffffff",
+  kind: "screen",
 });

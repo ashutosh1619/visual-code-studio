@@ -6,7 +6,7 @@
 // vocabulary (sections, stacks, grids) and computing pixels deterministically
 // here, every page is guaranteed to be aligned, padded, and readable.
 
-import type { CanvasNode, NodeType, TextStyleRole } from "./scene";
+import type { CanvasNode, NodeType, NodeData, TextStyleRole, Fidelity } from "./scene";
 import { defaultStyleFor } from "./scene";
 
 const GRID = 8;
@@ -37,6 +37,8 @@ export interface IANode {
   tone?: "surface" | "muted" | "transparent";
   /** Visual padding inside container in grid units. */
   padding?: number;
+  /** Multi-part content for primitives that need it (list-row, chip, etc.). */
+  data?: NodeData;
 }
 
 export interface IAPage {
@@ -105,7 +107,28 @@ const leafHeight = (n: IANode, widthPx: number): number => {
     case "input":
       return 40;
     case "image":
-      return 120;
+    case "image-placeholder":
+      // Use a 16:9 aspect-ratio so image placeholders feel "real" instead of
+      // shrinking to a thin strip when the column is wide.
+      return Math.max(96, snap(widthPx * 0.56));
+    case "chip":
+      return 32;
+    case "icon-circle":
+      return Math.min(64, Math.max(40, snap(widthPx)));
+    case "list-row":
+      return 72;
+    case "card":
+      return Math.max(128, snap(widthPx * 0.9));
+    case "map-block":
+      return 200;
+    case "segmented":
+      return 40;
+    case "bottom-bar":
+      return 64;
+    case "stepper":
+      return 32;
+    case "divider":
+      return 8;
     case "box":
       return 80;
     default:
@@ -129,9 +152,10 @@ const buildLeaf = (
   w: number,
   h: number,
   z: number,
+  fidelity: Fidelity,
 ): CanvasNode => {
   const type = (n.type ?? "box") as NodeType;
-  const style = { ...defaultStyleFor(type) };
+  const style = { ...defaultStyleFor(type, fidelity) };
   if (type === "text" && n.textStyle) {
     style.fontSize = TEXT_FONT[n.textStyle];
     if (n.textStyle === "display" || n.textStyle === "h1" || n.textStyle === "h2") {
@@ -150,6 +174,8 @@ const buildLeaf = (
     content: n.content,
     zIndex: z,
     textStyle: type === "text" ? n.textStyle : undefined,
+    data: n.data,
+    fidelity,
   };
 };
 
@@ -160,11 +186,12 @@ const layoutNode = (
   y: number,
   w: number,
   zStart: number,
+  fidelity: Fidelity,
 ): LaidOut => {
   if (n.kind === "leaf") {
     const h = leafHeight(n, w);
     return {
-      nodes: [buildLeaf(n, pageId, x, y, w, h, zStart)],
+      nodes: [buildLeaf(n, pageId, x, y, w, h, zStart, fidelity)],
       height: h,
     };
   }
@@ -188,7 +215,7 @@ const layoutNode = (
     for (const c of children) {
       const cx = innerX + col * (cellW + gap);
       const cy = cursorY;
-      const laid = layoutNode(c, pageId, cx, cy, cellW, z + 1);
+      const laid = layoutNode(c, pageId, cx, cy, cellW, z + 1, fidelity);
       out.push(...laid.nodes);
       z += laid.nodes.length;
       rowMaxH = Math.max(rowMaxH, laid.height);
@@ -216,7 +243,7 @@ const layoutNode = (
     let rowMaxH = 0;
     for (const c of children) {
       const childW = (usableW * (c.widthFrac ?? 1)) / totalFrac;
-      const laid = layoutNode(c, pageId, cursorX, innerY, childW, z + 1);
+      const laid = layoutNode(c, pageId, cursorX, innerY, childW, z + 1, fidelity);
       out.push(...laid.nodes);
       z += laid.nodes.length;
       rowMaxH = Math.max(rowMaxH, laid.height);
@@ -228,7 +255,7 @@ const layoutNode = (
   // column
   let cursorY = innerY;
   for (const c of children) {
-    const laid = layoutNode(c, pageId, innerX, cursorY, innerW, z + 1);
+    const laid = layoutNode(c, pageId, innerX, cursorY, innerW, z + 1, fidelity);
     out.push(...laid.nodes);
     z += laid.nodes.length;
     cursorY += laid.height + gap;
@@ -242,7 +269,11 @@ export interface LaidOutPage {
   nodes: CanvasNode[];
 }
 
-export const layoutPage = (page: IAPage, pageId: string): LaidOutPage => {
+export const layoutPage = (
+  page: IAPage,
+  pageId: string,
+  fidelity: Fidelity = "wireframe",
+): LaidOutPage => {
   const { nodes } = layoutNode(
     page.root,
     pageId,
@@ -250,6 +281,7 @@ export const layoutPage = (page: IAPage, pageId: string): LaidOutPage => {
     PAGE_PAD,
     PAGE_W - PAGE_PAD * 2,
     1,
+    fidelity,
   );
   // Clip nodes that would overflow the page height — prefer letting them sit
   // at the bottom edge rather than escape the frame.

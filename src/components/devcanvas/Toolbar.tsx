@@ -1,6 +1,22 @@
-import { Sparkles, Settings2, Code2, Wand2, Plus, ArrowRightCircle, Loader2, MessageSquarePlus, Share2, Download, Wand, LayoutGrid } from "lucide-react";
+import {
+  Sparkles,
+  Settings2,
+  Code2,
+  Wand2,
+  Plus,
+  ArrowRightCircle,
+  Loader2,
+  MessageSquarePlus,
+  Share2,
+  Download,
+  Wand,
+  LayoutGrid,
+  Palette,
+  Frame,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { Fidelity } from "@/lib/scene";
 
 export type Mode = "design" | "code" | "hybrid";
 
@@ -25,6 +41,11 @@ interface Props {
   peerCount: number;
   layoutPreview: boolean;
   onToggleLayoutPreview: () => void;
+  fidelity: Fidelity;
+  onToggleFidelity: () => void;
+  includeDesignSystem: boolean;
+  onToggleDesignSystem: () => void;
+  onTileStoryboard: () => void;
 }
 
 export const Toolbar = ({
@@ -48,6 +69,11 @@ export const Toolbar = ({
   peerCount,
   layoutPreview,
   onToggleLayoutPreview,
+  fidelity,
+  onToggleFidelity,
+  includeDesignSystem,
+  onToggleDesignSystem,
+  onTileStoryboard,
 }: Props) => {
   return (
     <div className="flex h-14 items-center justify-between border-b hairline panel-surface px-4">
@@ -111,9 +137,45 @@ export const Toolbar = ({
         >
           <LayoutGrid className="h-3 w-3" /> Layout
         </button>
+        <button
+          onClick={onTileStoryboard}
+          className="flex items-center gap-1.5 rounded-md border hairline bg-rail/40 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
+          title="Re-tile every page into a numbered storyboard grid"
+        >
+          <Frame className="h-3 w-3" /> Storyboard
+        </button>
       </div>
 
       <div className="flex flex-1 items-center justify-center gap-2 px-6">
+        <div className="flex items-center gap-1 rounded-md border hairline bg-rail/40 p-0.5">
+          {(["wireframe", "hifi"] as Fidelity[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => fidelity !== f && onToggleFidelity()}
+              className={cn(
+                "rounded px-2 py-1 text-[10px] uppercase tracking-wider transition-colors",
+                fidelity === f
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title={f === "wireframe" ? "Low-fi grayscale wireframes" : "High-fidelity colored mockups"}
+            >
+              {f === "wireframe" ? "Wire" : "Hi-fi"}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={onToggleDesignSystem}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] uppercase tracking-wider transition-colors",
+            includeDesignSystem
+              ? "border-accent bg-accent text-accent-foreground"
+              : "hairline bg-rail/40 text-muted-foreground hover:border-accent/40 hover:text-foreground",
+          )}
+          title="Include a design-system sheet (Page 0) when generating"
+        >
+          <Palette className="h-3 w-3" /> DS
+        </button>
         <div className="flex w-full max-w-2xl items-center gap-2 rounded-md border hairline bg-rail/40 px-3 py-1.5 transition-colors focus-within:border-accent/60">
           <Wand2 className="h-3.5 w-3.5 text-accent" />
           <input
