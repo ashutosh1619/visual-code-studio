@@ -222,6 +222,28 @@ async function callProvider(prompt: string, system: string): Promise<string> {
   return text;
 }
 
+const VALID_NODE_TYPES: NodeType[] = [
+  "box", "text", "image", "button", "input",
+  "image-placeholder", "icon-circle", "chip", "list-row", "card",
+  "map-block", "segmented", "bottom-bar", "sidebar", "stepper", "divider",
+];
+
+const sanitizeData = (raw: any) => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const data: Record<string, unknown> = {};
+  if (typeof raw.title === "string") data.title = raw.title;
+  if (typeof raw.meta === "string") data.meta = raw.meta;
+  if (typeof raw.trailing === "string") data.trailing = raw.trailing;
+  if (typeof raw.glyph === "string") data.glyph = raw.glyph.slice(0, 3);
+  if (typeof raw.badge === "string") data.badge = raw.badge.slice(0, 16);
+  if (Array.isArray(raw.options))
+    data.options = raw.options
+      .filter((o: unknown) => typeof o === "string")
+      .slice(0, 8) as string[];
+  if (typeof raw.active === "number") data.active = Math.max(0, Math.min(7, raw.active));
+  return Object.keys(data).length ? data : undefined;
+};
+
 const sanitizeIA = (n: any): IANode => {
   if (!n || typeof n !== "object") return { kind: "leaf", type: "box" };
   if (n.kind === "stack" || n.kind === "grid") {
@@ -235,8 +257,7 @@ const sanitizeIA = (n: any): IANode => {
     };
   }
   // leaf
-  const validTypes: NodeType[] = ["box", "text", "image", "button", "input"];
-  const type: NodeType = validTypes.includes(n.type) ? n.type : "box";
+  const type: NodeType = VALID_NODE_TYPES.includes(n.type) ? n.type : "box";
   return {
     kind: "leaf",
     type,
@@ -244,14 +265,16 @@ const sanitizeIA = (n: any): IANode => {
     textStyle: n.textStyle,
     height: typeof n.height === "number" ? n.height : undefined,
     widthFrac: typeof n.widthFrac === "number" ? n.widthFrac : undefined,
+    data: sanitizeData(n.data),
   };
 };
 
-const normalizeIA = (raw: any): GeneratedScene => {
+const normalizeIA = (raw: any, fidelity: Fidelity): GeneratedScene => {
   if (!raw || !Array.isArray(raw.pages)) throw new Error("AI response missing pages");
   const idMap = new Map<string, string>();
   const pages: Page[] = [];
   const nodes: CanvasNode[] = [];
+  const pageBg = fidelity === "wireframe" ? "#ffffff" : "#0f0d0b";
 
   raw.pages.forEach((p: any, i: number) => {
     const internalId = uid("p");
@@ -259,13 +282,15 @@ const normalizeIA = (raw: any): GeneratedScene => {
     const page: Page = {
       id: internalId,
       name: String(p.name ?? `Page ${i + 1}`),
+      number: i + 1,
       position: { x: 120 + i * (420 + PAGE_GAP), y: 120 },
       size: { width: 420, height: 720 },
-      background: "#0f0d0b",
+      background: pageBg,
+      kind: "screen",
     };
     pages.push(page);
     const root = sanitizeIA(p.root ?? fallbackPageIA(page.name));
-    const laid = layoutPage({ id: internalId, name: page.name, root } as IAPage, internalId);
+    const laid = layoutPage({ id: internalId, name: page.name, root } as IAPage, internalId, fidelity);
     nodes.push(...laid.nodes);
   });
 
@@ -285,19 +310,24 @@ const normalizeIA = (raw: any): GeneratedScene => {
   return { pages, nodes, edges };
 };
 
-export const generateWireframe = async (brief: string): Promise<GeneratedScene> => {
+export const generateWireframe = async (
+  brief: string,
+  fidelity: Fidelity = "wireframe",
+): Promise<GeneratedScene> => {
   rememberPrompt(brief);
-  const text = await callProvider(brief, IA_SYSTEM_PROMPT);
-  return normalizeIA(tryParseJson(text));
+  const system = IA_SYSTEM_PROMPT_BASE + FIDELITY_NOTE[fidelity];
+  const text = await callProvider(brief, system);
+  return normalizeIA(tryParseJson(text), fidelity);
 };
 
 // ---------- Single-page regeneration (also IA-based) ----------
 
-const PAGE_REGEN_SYSTEM = `You redesign ONE page of a wireframe using the same IA primitives.
+const PAGE_REGEN_SYSTEM = `You redesign ONE page of a wireframe sheet using the same IA primitives as the main generator.
 Return STRICT JSON: { "root": <Container> } — no coordinates.
 Containers: stack (column|row, gap, padding) or grid (columns, gap).
-Leaves: { kind:"leaf", type, content, textStyle, height?, widthFrac? }.
-Page area 420x720. 8-18 leaves, real product copy, semantic textStyles.
+Leaves can be text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, box.
+Use data.{title,meta,trailing,glyph,badge,options,active} to enrich list-row / card / chip / segmented / stepper.
+Page area 420x720. 10-25 leaves, REAL product copy, semantic textStyles.
 No prose, no code fences.`;
 
 export interface RegeneratedNodes {
@@ -308,12 +338,13 @@ export const regeneratePage = async (
   pageName: string,
   brief: string,
   pageId: string,
+  fidelity: Fidelity = "wireframe",
 ): Promise<RegeneratedNodes> => {
   const userMsg = `Page name: "${pageName}"\nBrief: ${brief}`;
   const text = await callProvider(userMsg, PAGE_REGEN_SYSTEM);
   const raw = tryParseJson(text);
   const root = sanitizeIA(raw.root ?? fallbackPageIA(pageName));
-  const laid = layoutPage({ id: pageId, name: pageName, root } as IAPage, pageId);
+  const laid = layoutPage({ id: pageId, name: pageName, root } as IAPage, pageId, fidelity);
   return { nodes: laid.nodes };
 };
 
