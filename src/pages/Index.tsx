@@ -285,18 +285,45 @@ const Index = () => {
     if (!prompt.trim()) { toast.error("Describe the product you want to design"); return; }
     setGenerating(true);
     try {
-      const result = await generateWireframe(prompt.trim());
-      const themed = applyTokensToScene({ pages: result.pages, nodes: result.nodes }, tokens);
+      const result = await generateWireframe(prompt.trim(), fidelity);
+      // Optionally prepend a design-system sheet (Page 0).
+      let pagesOut: Page[] = result.pages;
+      let nodesOut: CanvasNode[] = result.nodes;
+      if (includeDesignSystem) {
+        const dsPage = createDesignSystemPage();
+        const dsNodes = buildDesignSystemNodes(dsPage, tokens, fidelity);
+        pagesOut = [dsPage, ...pagesOut];
+        nodesOut = [...dsNodes, ...nodesOut];
+      }
+      // Tile every page into a storyboard grid (rows of 4).
+      pagesOut = tileStoryboard(pagesOut, { cols: 4 });
+      // Apply tokens (only if hi-fi; for wireframe keep monochrome look).
+      const themed = fidelity === "hifi"
+        ? applyTokensToScene({ pages: pagesOut, nodes: nodesOut }, tokens)
+        : { pages: pagesOut, nodes: nodesOut };
       setScene({ pages: themed.pages, nodes: themed.nodes, edges: result.edges });
       setSelectedIds([]);
       setSelectedPageId(themed.pages[0]?.id ?? null);
-      const totalWidth = themed.pages.reduce((s, p) => s + p.size.width + 80, 0) + 240;
-      setZoom(Math.max(0.4, Math.min(0.9, 1400 / totalWidth)));
+      // Zoom to fit the storyboard width.
+      const maxX = Math.max(...themed.pages.map((p) => p.position.x + p.size.width));
+      const minX = Math.min(...themed.pages.map((p) => p.position.x));
+      setZoom(Math.max(0.18, Math.min(0.7, (window.innerWidth - 600) / (maxX - minX + 240))));
       commit("Generate wireframe");
       toast.success(`${themed.pages.length} pages · ${result.edges.length} flows generated`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed", { duration: 5000 });
     } finally { setGenerating(false); }
+  };
+
+  const handleTileStoryboard = () => {
+    if (pages.length === 0) {
+      toast.info("Nothing to tile yet");
+      return;
+    }
+    const tiled = tileStoryboard(pages, { cols: 4 });
+    setScene((s) => ({ ...s, pages: tiled }));
+    commit("Tile storyboard");
+    toast.success("Pages tiled");
   };
 
   const handleRegeneratePage = async (pageId: string) => {
