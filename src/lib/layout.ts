@@ -105,7 +105,28 @@ const leafHeight = (n: IANode, widthPx: number): number => {
     case "input":
       return 40;
     case "image":
-      return 120;
+    case "image-placeholder":
+      // Use a 16:9 aspect-ratio so image placeholders feel "real" instead of
+      // shrinking to a thin strip when the column is wide.
+      return Math.max(96, snap(widthPx * 0.56));
+    case "chip":
+      return 32;
+    case "icon-circle":
+      return Math.min(64, Math.max(40, snap(widthPx)));
+    case "list-row":
+      return 72;
+    case "card":
+      return Math.max(128, snap(widthPx * 0.9));
+    case "map-block":
+      return 200;
+    case "segmented":
+      return 40;
+    case "bottom-bar":
+      return 64;
+    case "stepper":
+      return 32;
+    case "divider":
+      return 8;
     case "box":
       return 80;
     default:
