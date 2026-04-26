@@ -332,8 +332,10 @@ const Index = () => {
     setRegeneratingPageId(pageId);
     try {
       const brief = prompt.trim() || `Redesign the "${page.name}" page`;
-      const result = await regeneratePage(page.name, brief, pageId);
-      const themed = applyTokensToScene({ pages: [page], nodes: result.nodes }, tokens);
+      const result = await regeneratePage(page.name, brief, pageId, fidelity);
+      const themed = fidelity === "hifi"
+        ? applyTokensToScene({ pages: [page], nodes: result.nodes }, tokens)
+        : { pages: [page], nodes: result.nodes };
       setScene((s) => ({ ...s, nodes: [...s.nodes.filter((n) => n.pageId !== pageId), ...themed.nodes] }));
       commit(`Regenerate ${page.name}`);
       toast.success(`Regenerated ${page.name}`);
