@@ -4,6 +4,16 @@ import { snapRect, type Guide } from "@/lib/snap";
 import { buildScenePreview, containerLabel } from "@/lib/layoutPreview";
 import { cn } from "@/lib/utils";
 import { Sparkles, Loader2 } from "lucide-react";
+import {
+  ImagePlaceholderGlyph,
+  ListRowGlyph,
+  CardGlyph,
+  MapBlockGlyph,
+  SegmentedGlyph,
+  BottomBarGlyph,
+  SidebarGlyph,
+  StepperGlyph,
+} from "./PrimitiveGlyphs";
 
 interface Props {
   pages: Page[];
