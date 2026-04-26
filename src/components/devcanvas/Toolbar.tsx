@@ -1,6 +1,22 @@
-import { Sparkles, Settings2, Code2, Wand2, Plus, ArrowRightCircle, Loader2, MessageSquarePlus, Share2, Download, Wand, LayoutGrid } from "lucide-react";
+import {
+  Sparkles,
+  Settings2,
+  Code2,
+  Wand2,
+  Plus,
+  ArrowRightCircle,
+  Loader2,
+  MessageSquarePlus,
+  Share2,
+  Download,
+  Wand,
+  LayoutGrid,
+  Palette,
+  Frame,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { Fidelity } from "@/lib/scene";
 
 export type Mode = "design" | "code" | "hybrid";
 
@@ -25,6 +41,11 @@ interface Props {
   peerCount: number;
   layoutPreview: boolean;
   onToggleLayoutPreview: () => void;
+  fidelity: Fidelity;
+  onToggleFidelity: () => void;
+  includeDesignSystem: boolean;
+  onToggleDesignSystem: () => void;
+  onTileStoryboard: () => void;
 }
 
 export const Toolbar = ({
@@ -48,6 +69,11 @@ export const Toolbar = ({
   peerCount,
   layoutPreview,
   onToggleLayoutPreview,
+  fidelity,
+  onToggleFidelity,
+  includeDesignSystem,
+  onToggleDesignSystem,
+  onTileStoryboard,
 }: Props) => {
   return (
     <div className="flex h-14 items-center justify-between border-b hairline panel-surface px-4">
