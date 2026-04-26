@@ -22,6 +22,7 @@ import {
   type NodeType,
   type Page,
   type Edge,
+  type Fidelity,
   defaultContentFor,
   defaultSizeFor,
   defaultStyleFor,
@@ -29,6 +30,8 @@ import {
 } from "@/lib/scene";
 import { generateCode } from "@/lib/codegen";
 import { generateWireframe, regeneratePage, autoFixPage } from "@/lib/ai";
+import { tileStoryboard } from "@/lib/storyboard";
+import { createDesignSystemPage, buildDesignSystemNodes } from "@/lib/designSystemSheet";
 import {
   PRESET_THEMES,
   applyTokensToScene,
@@ -133,6 +136,8 @@ const Index = () => {
   const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
   const [autoFixing, setAutoFixing] = useState(false);
   const [layoutPreview, setLayoutPreview] = useState(false);
+  const [fidelity, setFidelity] = useState<Fidelity>("wireframe");
+  const [includeDesignSystem, setIncludeDesignSystem] = useState(true);
 
   // Tokens
   const [{ themeKey, tokens }, setTheme] = useState(() => loadTokens());
