@@ -520,6 +520,11 @@ const Index = () => {
           generating={generating} peerCount={peerCount}
           layoutPreview={layoutPreview}
           onToggleLayoutPreview={() => setLayoutPreview((v) => !v)}
+          fidelity={fidelity}
+          onToggleFidelity={() => setFidelity((f) => (f === "wireframe" ? "hifi" : "wireframe"))}
+          includeDesignSystem={includeDesignSystem}
+          onToggleDesignSystem={() => setIncludeDesignSystem((v) => !v)}
+          onTileStoryboard={handleTileStoryboard}
         />
 
         <main className="flex flex-1 overflow-hidden">
