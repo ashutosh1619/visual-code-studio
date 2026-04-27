@@ -157,6 +157,8 @@ const Index = () => {
   const [layoutPreview, setLayoutPreview] = useState(false);
   const [fidelity, setFidelity] = useState<Fidelity>("wireframe");
   const [includeDesignSystem, setIncludeDesignSystem] = useState(true);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
 
   // Tokens
   const [{ themeKey, tokens }, setTheme] = useState(() => loadTokens());
