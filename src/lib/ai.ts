@@ -127,7 +127,38 @@ HARD RULES (non-negotiable):
 - Use "grid" for repeated cards/icons, NOT for whole-page layout.
 - Edges express realistic navigation between screens. 4-10 edges.
 - NEVER emit x/y/width as coordinates. Only "height" as an optional hint on image-placeholder / map-block.
-- DO NOT mention or borrow copy from unrelated domains (no food/restaurant copy unless the brief is about food).`;
+- DO NOT mention or borrow copy from unrelated domains (no food/restaurant copy unless the brief is about food).
+- EVERY container MUST have "kind":"stack" or "kind":"grid". EVERY leaf MUST have "kind":"leaf". Missing "kind" produces an empty page — this is the #1 failure mode, do not skip it.
+
+────────────────────────────────────────────────────────
+MINI EXAMPLE (shape only — your real output covers the whole journey):
+
+{
+  "pages": [
+    {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "root": {
+        "kind": "stack", "direction": "column", "gap": 2, "padding": 2,
+        "children": [
+          { "kind": "leaf", "type": "text", "textStyle": "h1", "content": "Good morning, Alex" },
+          { "kind": "leaf", "type": "text", "textStyle": "caption", "content": "Tuesday, March 12" },
+          { "kind": "grid", "columns": 3, "gap": 2, "children": [
+            { "kind": "leaf", "type": "card", "data": { "title": "MRR", "trailing": "$48.2k", "meta": "+12% MoM" } },
+            { "kind": "leaf", "type": "card", "data": { "title": "Active users", "trailing": "1,284", "meta": "+3.4%" } },
+            { "kind": "leaf", "type": "card", "data": { "title": "Churn", "trailing": "2.1%", "meta": "-0.3%" } }
+          ]},
+          { "kind": "leaf", "type": "text", "textStyle": "h2", "content": "Recent activity" },
+          { "kind": "stack", "direction": "column", "gap": 1, "children": [
+            { "kind": "leaf", "type": "list-row", "data": { "title": "Invoice #1042 paid", "meta": "Acme Corp · 2h ago", "trailing": "$2,400" } },
+            { "kind": "leaf", "type": "list-row", "data": { "title": "New signup", "meta": "Priya S. · 4h ago", "trailing": "Trial" } }
+          ]}
+        ]
+      }
+    }
+  ],
+  "edges": [{ "from": "dashboard", "to": "billing", "label": "view invoice" }]
+}`;
 
 const FIDELITY_NOTE: Record<Fidelity, string> = {
   wireframe:
