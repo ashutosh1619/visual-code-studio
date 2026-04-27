@@ -30,6 +30,7 @@ export const buildDesignSystemNodes = (
   page: Page,
   tokens: DesignTokens,
   fidelity: Fidelity = "wireframe",
+  projectName: string = "Untitled Project",
 ): CanvasNode[] => {
   const nodes: CanvasNode[] = [];
   let z = 1;
@@ -78,8 +79,8 @@ export const buildDesignSystemNodes = (
   };
 
   // ---- Header ----
-  text("FoodFlow", PAD, 32, 220, 28, { size: 22, weight: 700 });
-  text("Web Wireframes", PAD, 60, 220, 22, { size: 16, weight: 500, color: tokens.colors.textMuted });
+  text(projectName, PAD, 32, 240, 28, { size: 22, weight: 700 });
+  text("Wireframes & Design System", PAD, 60, 240, 22, { size: 14, weight: 500, color: tokens.colors.textMuted });
 
   // ---- 01. Design System divider ----
   text("01. Design System", PAD, 100, 240, 18, {
