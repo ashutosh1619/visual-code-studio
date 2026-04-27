@@ -49,6 +49,7 @@ import {
   type SavedComponent,
 } from "@/lib/components";
 import { toast } from "sonner";
+import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose } from "lucide-react";
 
 const uid = () => `n_${Math.random().toString(36).slice(2, 8)}`;
 
