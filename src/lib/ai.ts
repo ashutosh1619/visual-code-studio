@@ -127,7 +127,38 @@ HARD RULES (non-negotiable):
 - Use "grid" for repeated cards/icons, NOT for whole-page layout.
 - Edges express realistic navigation between screens. 4-10 edges.
 - NEVER emit x/y/width as coordinates. Only "height" as an optional hint on image-placeholder / map-block.
-- DO NOT mention or borrow copy from unrelated domains (no food/restaurant copy unless the brief is about food).`;
+- DO NOT mention or borrow copy from unrelated domains (no food/restaurant copy unless the brief is about food).
+- EVERY container MUST have "kind":"stack" or "kind":"grid". EVERY leaf MUST have "kind":"leaf". Missing "kind" produces an empty page — this is the #1 failure mode, do not skip it.
+
+────────────────────────────────────────────────────────
+MINI EXAMPLE (shape only — your real output covers the whole journey):
+
+{
+  "pages": [
+    {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "root": {
+        "kind": "stack", "direction": "column", "gap": 2, "padding": 2,
+        "children": [
+          { "kind": "leaf", "type": "text", "textStyle": "h1", "content": "Good morning, Alex" },
+          { "kind": "leaf", "type": "text", "textStyle": "caption", "content": "Tuesday, March 12" },
+          { "kind": "grid", "columns": 3, "gap": 2, "children": [
+            { "kind": "leaf", "type": "card", "data": { "title": "MRR", "trailing": "$48.2k", "meta": "+12% MoM" } },
+            { "kind": "leaf", "type": "card", "data": { "title": "Active users", "trailing": "1,284", "meta": "+3.4%" } },
+            { "kind": "leaf", "type": "card", "data": { "title": "Churn", "trailing": "2.1%", "meta": "-0.3%" } }
+          ]},
+          { "kind": "leaf", "type": "text", "textStyle": "h2", "content": "Recent activity" },
+          { "kind": "stack", "direction": "column", "gap": 1, "children": [
+            { "kind": "leaf", "type": "list-row", "data": { "title": "Invoice #1042 paid", "meta": "Acme Corp · 2h ago", "trailing": "$2,400" } },
+            { "kind": "leaf", "type": "list-row", "data": { "title": "New signup", "meta": "Priya S. · 4h ago", "trailing": "Trial" } }
+          ]}
+        ]
+      }
+    }
+  ],
+  "edges": [{ "from": "dashboard", "to": "billing", "label": "view invoice" }]
+}`;
 
 const FIDELITY_NOTE: Record<Fidelity, string> = {
   wireframe:
@@ -269,29 +300,85 @@ const sanitizeData = (raw: any) => {
   return Object.keys(data).length ? data : undefined;
 };
 
+// Tolerant sanitizer — many models return slight schema variations
+// (missing "kind", using "type":"stack", wrapping children in {sections:[...]},
+// etc). We coerce any reasonable shape into the IA node format instead of
+// silently collapsing to an empty box.
+const inferKind = (n: any): "stack" | "grid" | "leaf" | null => {
+  if (!n || typeof n !== "object") return null;
+  if (n.kind === "stack" || n.kind === "grid" || n.kind === "leaf") return n.kind;
+  // Common alternate shapes:
+  if (n.type === "stack" || n.type === "container" || n.type === "section") return "stack";
+  if (n.type === "grid") return "grid";
+  // Has children → must be a container even if kind is missing.
+  if (Array.isArray(n.children) && n.children.length > 0) {
+    return n.columns && n.columns > 1 ? "grid" : "stack";
+  }
+  // Has a recognised leaf type → leaf.
+  if (typeof n.type === "string" && VALID_NODE_TYPES.includes(n.type as NodeType)) return "leaf";
+  return null;
+};
+
 const sanitizeIA = (n: any): IANode => {
-  if (!n || typeof n !== "object") return { kind: "leaf", type: "box" };
-  if (n.kind === "stack" || n.kind === "grid") {
+  const kind = inferKind(n);
+  if (!kind) return { kind: "leaf", type: "box" };
+
+  if (kind === "stack" || kind === "grid") {
+    // Children may live under .children, .items, .sections, or .nodes.
+    const rawKids =
+      (Array.isArray(n.children) && n.children) ||
+      (Array.isArray(n.items) && n.items) ||
+      (Array.isArray(n.sections) && n.sections) ||
+      (Array.isArray(n.nodes) && n.nodes) ||
+      [];
     return {
-      kind: n.kind,
+      kind,
       direction: n.direction === "row" ? "row" : "column",
       gap: typeof n.gap === "number" ? Math.max(0, Math.min(4, n.gap)) : 2,
       padding: typeof n.padding === "number" ? Math.max(0, Math.min(3, n.padding)) : 0,
-      columns: typeof n.columns === "number" ? Math.max(1, Math.min(4, n.columns)) : undefined,
-      children: Array.isArray(n.children) ? n.children.map(sanitizeIA) : [],
+      columns:
+        typeof n.columns === "number"
+          ? Math.max(1, Math.min(4, n.columns))
+          : kind === "grid"
+          ? 2
+          : undefined,
+      children: rawKids.map(sanitizeIA),
     };
   }
+
   // leaf
   const type: NodeType = VALID_NODE_TYPES.includes(n.type) ? n.type : "box";
+  // Some models put copy under .text or .label.
+  const content =
+    n.content !== undefined
+      ? String(n.content)
+      : typeof n.text === "string"
+      ? n.text
+      : typeof n.label === "string"
+      ? n.label
+      : undefined;
   return {
     kind: "leaf",
     type,
-    content: n.content !== undefined ? String(n.content) : undefined,
+    content,
     textStyle: n.textStyle,
     height: typeof n.height === "number" ? n.height : undefined,
     widthFrac: typeof n.widthFrac === "number" ? n.widthFrac : undefined,
     data: sanitizeData(n.data),
   };
+};
+
+const isEmptyRoot = (root: IANode): boolean => {
+  if (root.kind === "leaf") return true;
+  const kids = root.children ?? [];
+  if (kids.length === 0) return true;
+  // All children empty leaves with no content → effectively empty.
+  return kids.every(
+    (c) =>
+      c.kind === "leaf" &&
+      (c.type === "box" || !c.type) &&
+      !c.content,
+  );
 };
 
 const normalizeIA = (raw: any, fidelity: Fidelity): GeneratedScene => {
@@ -314,7 +401,14 @@ const normalizeIA = (raw: any, fidelity: Fidelity): GeneratedScene => {
       kind: "screen",
     };
     pages.push(page);
-    const root = sanitizeIA(p.root ?? fallbackPageIA(page.name));
+    let root = sanitizeIA(p.root ?? p.layout ?? p.content ?? p);
+    if (isEmptyRoot(root)) {
+      console.warn(
+        `[devcanvas] page "${page.name}" returned empty root — using fallback. Raw payload:`,
+        p,
+      );
+      root = sanitizeIA(fallbackPageIA(page.name));
+    }
     const laid = layoutPage({ id: internalId, name: page.name, root } as IAPage, internalId, fidelity);
     nodes.push(...laid.nodes);
   });
@@ -375,7 +469,11 @@ export const regeneratePage = async (
   const userMsg = `Page name: "${pageName}"\nBrief: ${brief}`;
   const text = await callProvider(userMsg, PAGE_REGEN_SYSTEM);
   const raw = tryParseJson(text);
-  const root = sanitizeIA(raw.root ?? fallbackPageIA(pageName));
+  let root = sanitizeIA(raw.root ?? raw.layout ?? raw);
+  if (isEmptyRoot(root)) {
+    console.warn(`[devcanvas] regen of "${pageName}" returned empty root. Raw:`, raw);
+    root = sanitizeIA(fallbackPageIA(pageName));
+  }
   const laid = layoutPage({ id: pageId, name: pageName, root } as IAPage, pageId, fidelity);
   return { nodes: laid.nodes };
 };
