@@ -269,29 +269,85 @@ const sanitizeData = (raw: any) => {
   return Object.keys(data).length ? data : undefined;
 };
 
+// Tolerant sanitizer — many models return slight schema variations
+// (missing "kind", using "type":"stack", wrapping children in {sections:[...]},
+// etc). We coerce any reasonable shape into the IA node format instead of
+// silently collapsing to an empty box.
+const inferKind = (n: any): "stack" | "grid" | "leaf" | null => {
+  if (!n || typeof n !== "object") return null;
+  if (n.kind === "stack" || n.kind === "grid" || n.kind === "leaf") return n.kind;
+  // Common alternate shapes:
+  if (n.type === "stack" || n.type === "container" || n.type === "section") return "stack";
+  if (n.type === "grid") return "grid";
+  // Has children → must be a container even if kind is missing.
+  if (Array.isArray(n.children) && n.children.length > 0) {
+    return n.columns && n.columns > 1 ? "grid" : "stack";
+  }
+  // Has a recognised leaf type → leaf.
+  if (typeof n.type === "string" && VALID_NODE_TYPES.includes(n.type as NodeType)) return "leaf";
+  return null;
+};
+
 const sanitizeIA = (n: any): IANode => {
-  if (!n || typeof n !== "object") return { kind: "leaf", type: "box" };
-  if (n.kind === "stack" || n.kind === "grid") {
+  const kind = inferKind(n);
+  if (!kind) return { kind: "leaf", type: "box" };
+
+  if (kind === "stack" || kind === "grid") {
+    // Children may live under .children, .items, .sections, or .nodes.
+    const rawKids =
+      (Array.isArray(n.children) && n.children) ||
+      (Array.isArray(n.items) && n.items) ||
+      (Array.isArray(n.sections) && n.sections) ||
+      (Array.isArray(n.nodes) && n.nodes) ||
+      [];
     return {
-      kind: n.kind,
+      kind,
       direction: n.direction === "row" ? "row" : "column",
       gap: typeof n.gap === "number" ? Math.max(0, Math.min(4, n.gap)) : 2,
       padding: typeof n.padding === "number" ? Math.max(0, Math.min(3, n.padding)) : 0,
-      columns: typeof n.columns === "number" ? Math.max(1, Math.min(4, n.columns)) : undefined,
-      children: Array.isArray(n.children) ? n.children.map(sanitizeIA) : [],
+      columns:
+        typeof n.columns === "number"
+          ? Math.max(1, Math.min(4, n.columns))
+          : kind === "grid"
+          ? 2
+          : undefined,
+      children: rawKids.map(sanitizeIA),
     };
   }
+
   // leaf
   const type: NodeType = VALID_NODE_TYPES.includes(n.type) ? n.type : "box";
+  // Some models put copy under .text or .label.
+  const content =
+    n.content !== undefined
+      ? String(n.content)
+      : typeof n.text === "string"
+      ? n.text
+      : typeof n.label === "string"
+      ? n.label
+      : undefined;
   return {
     kind: "leaf",
     type,
-    content: n.content !== undefined ? String(n.content) : undefined,
+    content,
     textStyle: n.textStyle,
     height: typeof n.height === "number" ? n.height : undefined,
     widthFrac: typeof n.widthFrac === "number" ? n.widthFrac : undefined,
     data: sanitizeData(n.data),
   };
+};
+
+const isEmptyRoot = (root: IANode): boolean => {
+  if (root.kind === "leaf") return true;
+  const kids = root.children ?? [];
+  if (kids.length === 0) return true;
+  // All children empty leaves with no content → effectively empty.
+  return kids.every(
+    (c) =>
+      c.kind === "leaf" &&
+      (c.type === "box" || !c.type) &&
+      !c.content,
+  );
 };
 
 const normalizeIA = (raw: any, fidelity: Fidelity): GeneratedScene => {
