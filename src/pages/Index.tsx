@@ -52,6 +52,25 @@ import { toast } from "sonner";
 
 const uid = () => `n_${Math.random().toString(36).slice(2, 8)}`;
 
+/** Heuristic — turn a free-form brief into a 1-3 word project name for the
+ *  Design System sheet header. Strips connective words and Title-Cases. */
+const deriveProjectName = (brief: string): string => {
+  if (!brief) return "Untitled Project";
+  const stop = new Set([
+    "a","an","the","for","with","and","or","of","to","in","on","app","application",
+    "site","website","platform","system","that","which","build","make","create",
+    "design","wireframe","mockup","ui","ux","my","our","i","want","need","please",
+  ]);
+  const words = brief
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w && !stop.has(w))
+    .slice(0, 3);
+  if (words.length === 0) return "Untitled Project";
+  return words.map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+};
+
 const seedScene = () => {
   const landing: Page = {
     id: "page_seed_landing", name: "Landing",
