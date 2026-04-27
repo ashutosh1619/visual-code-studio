@@ -438,7 +438,11 @@ export const regeneratePage = async (
   const userMsg = `Page name: "${pageName}"\nBrief: ${brief}`;
   const text = await callProvider(userMsg, PAGE_REGEN_SYSTEM);
   const raw = tryParseJson(text);
-  const root = sanitizeIA(raw.root ?? fallbackPageIA(pageName));
+  let root = sanitizeIA(raw.root ?? raw.layout ?? raw);
+  if (isEmptyRoot(root)) {
+    console.warn(`[devcanvas] regen of "${pageName}" returned empty root. Raw:`, raw);
+    root = sanitizeIA(fallbackPageIA(pageName));
+  }
   const laid = layoutPage({ id: pageId, name: pageName, root } as IAPage, pageId, fidelity);
   return { nodes: laid.nodes };
 };
