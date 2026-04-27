@@ -370,7 +370,14 @@ const normalizeIA = (raw: any, fidelity: Fidelity): GeneratedScene => {
       kind: "screen",
     };
     pages.push(page);
-    const root = sanitizeIA(p.root ?? fallbackPageIA(page.name));
+    let root = sanitizeIA(p.root ?? p.layout ?? p.content ?? p);
+    if (isEmptyRoot(root)) {
+      console.warn(
+        `[devcanvas] page "${page.name}" returned empty root — using fallback. Raw payload:`,
+        p,
+      );
+      root = sanitizeIA(fallbackPageIA(page.name));
+    }
     const laid = layoutPage({ id: internalId, name: page.name, root } as IAPage, internalId, fidelity);
     nodes.push(...laid.nodes);
   });
