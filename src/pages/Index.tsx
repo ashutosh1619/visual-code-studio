@@ -49,8 +49,28 @@ import {
   type SavedComponent,
 } from "@/lib/components";
 import { toast } from "sonner";
+import { PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose } from "lucide-react";
 
 const uid = () => `n_${Math.random().toString(36).slice(2, 8)}`;
+
+/** Heuristic — turn a free-form brief into a 1-3 word project name for the
+ *  Design System sheet header. Strips connective words and Title-Cases. */
+const deriveProjectName = (brief: string): string => {
+  if (!brief) return "Untitled Project";
+  const stop = new Set([
+    "a","an","the","for","with","and","or","of","to","in","on","app","application",
+    "site","website","platform","system","that","which","build","make","create",
+    "design","wireframe","mockup","ui","ux","my","our","i","want","need","please",
+  ]);
+  const words = brief
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w && !stop.has(w))
+    .slice(0, 3);
+  if (words.length === 0) return "Untitled Project";
+  return words.map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+};
 
 const seedScene = () => {
   const landing: Page = {
@@ -138,6 +158,8 @@ const Index = () => {
   const [layoutPreview, setLayoutPreview] = useState(false);
   const [fidelity, setFidelity] = useState<Fidelity>("wireframe");
   const [includeDesignSystem, setIncludeDesignSystem] = useState(true);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
 
   // Tokens
   const [{ themeKey, tokens }, setTheme] = useState(() => loadTokens());
@@ -291,7 +313,8 @@ const Index = () => {
       let nodesOut: CanvasNode[] = result.nodes;
       if (includeDesignSystem) {
         const dsPage = createDesignSystemPage();
-        const dsNodes = buildDesignSystemNodes(dsPage, tokens, fidelity);
+        const projectName = deriveProjectName(prompt.trim());
+        const dsNodes = buildDesignSystemNodes(dsPage, tokens, fidelity, projectName);
         pagesOut = [dsPage, ...pagesOut];
         nodesOut = [...dsNodes, ...nodesOut];
       }
@@ -528,15 +551,39 @@ const Index = () => {
         />
 
         <main className="flex flex-1 overflow-hidden">
-          <ElementsPanel
-            onAdd={(t) => addNode(t, 40, 40)}
-            selectedNodes={selectedNodes}
-            onInsertComponent={insertComponent}
-            themeKey={themeKey}
-            tokens={tokens}
-            onApplyPreset={applyPreset}
-            onUpdateTokens={updateTokens}
-          />
+          {leftCollapsed ? (
+            <button
+              onClick={() => setLeftCollapsed(false)}
+              className="group flex h-full w-7 flex-col items-center justify-center gap-2 border-r hairline panel-surface text-muted-foreground transition-colors hover:text-foreground"
+              title="Expand library panel"
+              aria-label="Expand library panel"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+              <span className="rotate-180 text-[9px] uppercase tracking-[0.2em] [writing-mode:vertical-rl]">
+                Library
+              </span>
+            </button>
+          ) : (
+            <div className="relative flex h-full">
+              <ElementsPanel
+                onAdd={(t) => addNode(t, 40, 40)}
+                selectedNodes={selectedNodes}
+                onInsertComponent={insertComponent}
+                themeKey={themeKey}
+                tokens={tokens}
+                onApplyPreset={applyPreset}
+                onUpdateTokens={updateTokens}
+              />
+              <button
+                onClick={() => setLeftCollapsed(true)}
+                className="absolute right-0 top-3 z-10 flex h-6 w-6 -translate-x-1 items-center justify-center rounded-md border hairline bg-background/90 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                title="Collapse library panel"
+                aria-label="Collapse library panel"
+              >
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
 
           <div className="relative flex-1 overflow-hidden">
             <Canvas
@@ -573,7 +620,7 @@ const Index = () => {
                 The canvas <em className="text-accent">is</em> the source.
               </h1>
               <p className="mt-2 text-xs text-muted-foreground/80">
-                Describe the product. We draft pages and connect them. Then drag, edit, and add by hand.
+                Describe any product. We draft pages and connect them. Then drag, edit, and add by hand.
               </p>
             </div>
 
@@ -584,13 +631,37 @@ const Index = () => {
             )}
           </div>
 
-          <InspectorPanel
-            nodes={nodes} selected={selected}
-            onUpdate={updateNode} onUpdateStyle={updateStyle}
-            onDelete={deleteNode}
-            onSelect={(id) => setSelectedIds([id])}
-            onPushToMaster={selected?.componentId ? () => propagateFromInstance(selected) : undefined}
-          />
+          {rightCollapsed ? (
+            <button
+              onClick={() => setRightCollapsed(false)}
+              className="group flex h-full w-7 flex-col items-center justify-center gap-2 border-l hairline panel-surface text-muted-foreground transition-colors hover:text-foreground"
+              title="Expand inspector panel"
+              aria-label="Expand inspector panel"
+            >
+              <PanelRightOpen className="h-4 w-4" />
+              <span className="text-[9px] uppercase tracking-[0.2em] [writing-mode:vertical-rl]">
+                Inspector
+              </span>
+            </button>
+          ) : (
+            <div className="relative flex h-full">
+              <button
+                onClick={() => setRightCollapsed(true)}
+                className="absolute left-0 top-3 z-10 flex h-6 w-6 translate-x-1 items-center justify-center rounded-md border hairline bg-background/90 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                title="Collapse inspector panel"
+                aria-label="Collapse inspector panel"
+              >
+                <PanelRightClose className="h-3.5 w-3.5" />
+              </button>
+              <InspectorPanel
+                nodes={nodes} selected={selected}
+                onUpdate={updateNode} onUpdateStyle={updateStyle}
+                onDelete={deleteNode}
+                onSelect={(id) => setSelectedIds([id])}
+                onPushToMaster={selected?.componentId ? () => propagateFromInstance(selected) : undefined}
+              />
+            </div>
+          )}
         </main>
 
         <BottomBar zoom={zoom} setZoom={setZoom} cursor={cursor} mode={mode} nodeCount={nodes.length} />
