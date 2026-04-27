@@ -291,7 +291,8 @@ const Index = () => {
       let nodesOut: CanvasNode[] = result.nodes;
       if (includeDesignSystem) {
         const dsPage = createDesignSystemPage();
-        const dsNodes = buildDesignSystemNodes(dsPage, tokens, fidelity);
+        const projectName = deriveProjectName(prompt.trim());
+        const dsNodes = buildDesignSystemNodes(dsPage, tokens, fidelity, projectName);
         pagesOut = [dsPage, ...pagesOut];
         nodesOut = [...dsNodes, ...nodesOut];
       }
