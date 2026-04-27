@@ -347,12 +347,19 @@ export const generateWireframe = async (
 
 // ---------- Single-page regeneration (also IA-based) ----------
 
-const PAGE_REGEN_SYSTEM = `You redesign ONE page of a wireframe sheet using the same IA primitives as the main generator.
+const PAGE_REGEN_SYSTEM = `You are a senior product designer redesigning ONE page of a wireframe sheet. First infer the page's domain and primary user goal from the page name + brief, then design the layout to make that goal obvious in 2 seconds.
+
 Return STRICT JSON: { "root": <Container> } — no coordinates.
 Containers: stack (column|row, gap, padding) or grid (columns, gap).
-Leaves can be text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, box.
+Leaves: text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, box.
 Use data.{title,meta,trailing,glyph,badge,options,active} to enrich list-row / card / chip / segmented / stepper.
-Page area 420x720. 10-25 leaves, REAL product copy, semantic textStyles.
+
+Rules:
+- Page area 420x720. Root is a vertical stack.
+- 10-25 leaves with realistic, DOMAIN-SPECIFIC copy (no food/restaurant copy unless the brief is about food).
+- One h1 per page, semantic textStyle on every text leaf.
+- Pick the right primitive for each piece of content — never default to text/box.
+- Group with nested stacks; use row + widthFrac for two-column rows; use grid only for repeated cards/icons.
 No prose, no code fences.`;
 
 export interface RegeneratedNodes {
