@@ -494,15 +494,17 @@ export const generateWireframe = async (
 const PAGE_REGEN_SYSTEM = `You are a senior product designer redesigning ONE page of a wireframe sheet. First infer the page's domain and primary user goal from the page name + brief, then design the layout to make that goal obvious in 2 seconds.
 
 Return STRICT JSON: { "root": <Container> } — no coordinates.
-Containers: stack (column|row, gap, padding) or grid (columns, gap).
-Leaves: text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, box.
-Use data.{title,meta,trailing,glyph,badge,options,active} to enrich list-row / card / chip / segmented / stepper.
+Containers: stack (column|row, gap, padding, widthFrac on children) or grid (columns 2-4, gap).
+Leaves: text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, kpi-card, slider, progress, rating, avatar-stack, tag, checkbox-row, toggle-row, chart-bar, chart-line, box.
+
+Use data.{title,meta,trailing,glyph,badge,options,active,value,min,max,rating,reviews,delta,trend,count,series,on,checked,tone}.
 
 Rules:
-- Page area 420x720. Root is a vertical stack.
-- 10-25 leaves with realistic, DOMAIN-SPECIFIC copy (no food/restaurant copy unless the brief is about food).
-- One h1 per page, semantic textStyle on every text leaf.
-- Pick the right primitive for each piece of content — never default to text/box.
+- Page area 420x720. Root is a vertical stack with padding 2.
+- 14-28 leaves with realistic, DOMAIN-SPECIFIC copy and numbers (prices, %, dates, counts).
+- One h1 per page; semantic textStyle on every text leaf.
+- Pick the SEMANTIC primitive: kpi-card for metrics, chart-line/bar for analytics, rating for reviews, slider for ranges, tag for statuses, icon-circle with data.glyph for category icons.
+- Every list-row & card MUST have meaningful data.title + data.meta + data.trailing — never empty.
 - Group with nested stacks; use row + widthFrac for two-column rows; use grid only for repeated cards/icons.
 No prose, no code fences.`;
 
