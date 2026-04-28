@@ -86,49 +86,70 @@ OUTPUT FORMAT — STRICT JSON, no prose, no code fences:
               "options": ["..."], "active": 0, "glyph": "♥", "badge": "NEW" }
   }
 
-PrimitiveType vocabulary — pick the SEMANTICALLY RIGHT one, never default to text/box:
-  • text                 — headings, paragraphs, labels (always set textStyle)
-  • button               — primary CTA
-  • input                — search/form field (use 'content' for placeholder)
-  • image-placeholder    — image area (hero, avatar, thumbnail, illustration)
-  • icon-circle          — round icon (set data.glyph: ♥ ★ ⌘ A 1 …)
-  • chip                 — pill filter/tag/status ("Active", "Pro", "Due Mar 12")
-  • list-row             — full-width row: thumb + title + meta + trailing
-  • card                 — tile in a grid: title + meta + trailing (+ data.badge)
-  • map-block            — map / chart / canvas area
-  • segmented            — tab strip (data.options + data.active)
-  • bottom-bar           — sticky mobile action footer
-  • sidebar              — vertical nav (data.options + data.active)
-  • stepper              — multi-step progress (data.options + data.active)
-  • divider              — 1px hairline separator
-  • box                  — generic surface (use SPARINGLY — prefer specific primitives)
+PrimitiveType vocabulary — pick the SEMANTICALLY RIGHT one. NEVER use "text" for a label/value pair, NEVER use "box" for content (use card/list-row/kpi-card instead). NEVER leave a box empty.
+
+  • text                 — headings, paragraphs (always set textStyle). Use SPARINGLY — 3-6 per page max.
+  • button               — primary CTA (filled). Use 1-2 per page.
+  • input                — search/form field; set 'content' to a realistic placeholder ("Search restaurants near you")
+  • image-placeholder    — image area (hero, avatar, thumbnail). Set data.glyph for emoji/icon hint
+  • icon-circle          — round icon tile (set data.glyph: 🍕 ★ 🛒 📊 ⚙ 💳 …) — use in category strips
+  • chip                 — pill: filter/tag/status. ALWAYS set data.title and optional data.glyph
+  • list-row             — full row: data.title, data.meta, data.trailing, optional data.glyph
+  • card                 — grid tile: data.title, data.meta, data.trailing (price), data.badge ("NEW", "-20%"), data.rating, data.reviews
+  • map-block            — map area
+  • segmented            — tab strip: data.options + data.active
+  • bottom-bar           — sticky mobile footer: data.options + data.active OR a CTA with data.title + data.meta
+  • sidebar              — vertical nav: data.options + data.active
+  • stepper              — step progress: data.options + data.active
+  • divider              — 1px separator between sections
+  • kpi-card             — DASHBOARD METRIC TILE: data.title (label), data.trailing ("$48.2k"), data.delta ("+12.4%"), data.trend ("up"|"down"|"flat"), data.glyph (📈 💰 👥)
+  • slider               — range slider: data.title, data.value (0-100), data.min ("$0"), data.max ("$500"), data.trailing ("$120")
+  • progress             — progress bar: data.title, data.value (0-100), data.trailing ("3 of 5")
+  • rating               — ★★★★☆ + numeric: data.rating (0-5, e.g. 4.7), data.reviews (e.g. 1284)
+  • avatar-stack         — overlapping circles: data.count (total), data.meta ("members"|"viewing")
+  • tag                  — small status pill: data.title ("Active", "Failed"), data.tone ("success"|"warning"|"danger"|"info"|"neutral")
+  • checkbox-row         — checkbox + label: data.title, data.meta, data.checked (bool), data.trailing
+  • toggle-row           — settings switch: data.title, data.meta, data.on (bool)
+  • chart-bar            — bar chart: data.title, data.trailing (delta), data.series (array of 6-12 numbers 0-100)
+  • chart-line           — line chart: data.title, data.trailing ("+12.4%"), data.series (array of 8-16 numbers)
+  • box                  — generic surface — AVOID. Use a specific primitive instead.
 
 SECTION TEMPLATES — compose these wherever they fit the domain:
-  • Search hero      → stack[ text(h1), input, row[chip x3-5] ]
-  • Category strip   → grid(columns=4)[ stack[icon-circle, text(label)] x4-8 ]
-  • Card grid        → grid(columns=2|3)[ card x4-8 ]
-  • List feed        → stack[ list-row x4-8 ]
-  • Filter rail      → stack[ text(h3), chip rows, divider, … ]
-  • Summary panel    → stack[ list-row, divider, row[text label, text value], button ]
+  • Search hero      → stack[ text(h1), input, row[chip x4-6 with glyph] ]
+  • Category strip   → grid(columns=4)[ stack[icon-circle with glyph, text(label)] x4-8 ]
+  • Card grid        → grid(columns=2)[ card x4-6 with badge/rating/trailing price ]
+  • List feed        → stack[ list-row x4-6 with glyph + meta + trailing ]
+  • Filter rail      → stack[ text(h3), slider, divider, chip rows, divider, checkbox-row x3 ]
+  • Summary panel    → stack[ list-row x2, divider, row[text label, text value], button ]
   • Multi-step form  → stack[ stepper, text(h2), input x3-5, button ]
-  • Detail header    → stack[ image-placeholder, text(h1), text(caption), row[button, button] ]
-  • Dashboard KPIs   → grid(columns=3)[ card x3 ] with data.title=metric name, data.trailing=value
+  • Detail header    → stack[ image-placeholder(height:220), text(h1), rating, row[button, button] ]
+  • KPI dashboard    → grid(columns=3)[ kpi-card x3 with delta + trend ] then chart-line below
+  • Activity feed    → stack[ list-row x4-6 with avatars/glyphs ]
+  • Settings page    → stack[ text(h2), toggle-row x4-5, divider, checkbox-row x3 ]
+  • Profile header   → row[ image-placeholder(circle), stack[text(h2), text(caption), avatar-stack] ]
   • Empty state      → stack[ image-placeholder, text(h2), text(body), button ]
-  • Profile nav      → sidebar with data.options + data.active
-  • Bottom nav       → bottom-bar with data.options + data.active
 
 HARD RULES (non-negotiable):
-- Page area is 420×720. Root container is a vertical "stack".
-- Generate 5-8 pages covering the WHOLE journey for the inferred domain. Always include at least: an entry/landing screen, a primary working screen, a detail/edit screen, a confirmation/success or empty state.
-- Per page: 10-25 leaves. Realistic, domain-specific copy — names, numbers, dates, statuses that a real user of THIS product would see.
+- Page area is 420×720. Root container is a vertical "stack" with padding 2.
+- Generate 5-8 pages covering the WHOLE journey for the inferred domain.
+- Per page: 14-28 leaves. DENSE, realistic, domain-specific copy — names, numbers, dates, statuses, prices, percentages, real-world IDs.
+- ALWAYS use kpi-card for dashboard metrics (NOT card with title="MRR")
+- ALWAYS use chart-bar/chart-line for analytics screens — every dashboard MUST have at least one chart
+- ALWAYS use rating + reviews on product/restaurant/listing cards
+- ALWAYS use tag (with tone) for statuses like "Active", "Pending", "Paid", "Failed"
+- ALWAYS use slider for price/distance/range filters
+- ALWAYS use icon-circle with data.glyph for category strips (food: 🍕🍔🥗🍣, finance: 💳💰📊⚡, health: ❤️💊🩺📋)
+- ALWAYS populate data.glyph on list-row when the row represents a category/feature/quick-action
+- Every card in a product grid MUST have data.title + data.meta + data.trailing (price) and ideally data.badge or data.rating
+- Realistic numbers: prices "$48.2k", "₹680", percentages "+12.4%", dates "Mar 12 · 2:30 PM", counts "1,284 users"
 - Set "textStyle" on every text leaf. One h1 per page maximum.
 - Use nested stacks for grouping. NEVER flatten everything to root level.
 - Use "row" stacks with widthFrac for two-column rows.
-- Use "grid" for repeated cards/icons, NOT for whole-page layout.
+- Use "grid" for repeated cards/icons (columns: 2, 3, or 4).
 - Edges express realistic navigation between screens. 4-10 edges.
-- NEVER emit x/y/width as coordinates. Only "height" as an optional hint on image-placeholder / map-block.
-- DO NOT mention or borrow copy from unrelated domains (no food/restaurant copy unless the brief is about food).
-- EVERY container MUST have "kind":"stack" or "kind":"grid". EVERY leaf MUST have "kind":"leaf". Missing "kind" produces an empty page — this is the #1 failure mode, do not skip it.
+- NEVER emit x/y/width as coordinates.
+- DO NOT borrow copy from unrelated domains (no food/restaurant copy unless the brief is about food).
+- EVERY container MUST have "kind":"stack" or "kind":"grid". EVERY leaf MUST have "kind":"leaf".
 
 ────────────────────────────────────────────────────────
 MINI EXAMPLE (shape only — your real output covers the whole journey):
