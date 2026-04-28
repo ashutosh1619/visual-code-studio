@@ -13,6 +13,16 @@ import {
   BottomBarGlyph,
   SidebarGlyph,
   StepperGlyph,
+  KpiCardGlyph,
+  SliderGlyph,
+  ProgressGlyph,
+  RatingGlyph,
+  AvatarStackGlyph,
+  TagGlyph,
+  ToggleRowGlyph,
+  CheckboxRowGlyph,
+  ChartBarGlyph,
+  ChartLineGlyph,
 } from "./PrimitiveGlyphs";
 
 interface Props {
