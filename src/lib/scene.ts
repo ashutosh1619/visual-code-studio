@@ -15,7 +15,18 @@ export type NodeType =
   | "bottom-bar"         // sticky bottom action bar
   | "sidebar"            // vertical nav strip
   | "stepper"            // horizontal step indicator (1 ─ 2 ─ 3)
-  | "divider";           // 1px hairline
+  | "divider"            // 1px hairline
+  // ---- richer wireframe primitives ----
+  | "slider"             // horizontal range slider with track + thumb + value
+  | "avatar-stack"       // overlapping circular avatars + "+N more"
+  | "rating"             // ★★★★☆ + numeric score
+  | "progress"           // horizontal progress bar with %
+  | "kpi-card"           // dashboard KPI tile: label + big number + delta
+  | "tag"                // small status pill (Active / Pending / Failed)
+  | "checkbox-row"       // checkbox + label + meta
+  | "toggle-row"         // label + meta + iOS-style switch
+  | "chart-bar"          // bar chart sparkline
+  | "chart-line";        // line chart sparkline
 
 /** Semantic typographic role; pulled from token scale at render-time when set. */
 export type TextStyleRole =
@@ -55,6 +66,29 @@ export interface NodeData {
   glyph?: string; // single character or short token
   /** card */
   badge?: string;
+  /** slider/progress: 0..100 */
+  value?: number;
+  /** slider: range labels */
+  min?: string;
+  max?: string;
+  /** rating: 0..5 */
+  rating?: number;
+  /** rating: review count */
+  reviews?: number;
+  /** kpi-card: delta string like "+12%" */
+  delta?: string;
+  /** kpi-card: trend direction */
+  trend?: "up" | "down" | "flat";
+  /** avatar-stack: count */
+  count?: number;
+  /** chart: array of values 0..100 */
+  series?: number[];
+  /** toggle-row */
+  on?: boolean;
+  /** checkbox-row */
+  checked?: boolean;
+  /** tag color hint */
+  tone?: "success" | "warning" | "danger" | "info" | "neutral";
 }
 
 export interface CanvasNode {
