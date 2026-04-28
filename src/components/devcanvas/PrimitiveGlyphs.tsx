@@ -33,37 +33,48 @@ export const ImagePlaceholderGlyph = () => (
 export const ListRowGlyph = ({ node }: { node: CanvasNode }) => {
   const d = node.data ?? {};
   const c = lineColor(node);
+  const thumbSize = Math.min(56, node.size.height - 16);
   return (
     <div
       className="flex h-full w-full items-center"
-      style={{ padding: 10, gap: 12, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}
+      style={{ padding: 12, gap: 12, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}
     >
       <div
-        className="flex shrink-0 items-center justify-center"
+        className="flex shrink-0 items-center justify-center overflow-hidden"
         style={{
-          width: Math.min(56, node.size.height - 12),
-          height: Math.min(56, node.size.height - 12),
+          width: thumbSize,
+          height: thumbSize,
           background: surface(node),
           border: `1px solid ${c}`,
-          borderRadius: 4,
+          borderRadius: 6,
         }}
       >
-        <ImagePlaceholderGlyph />
+        {d.glyph ? (
+          <span style={{ fontSize: thumbSize * 0.45, lineHeight: 1 }}>{d.glyph}</span>
+        ) : (
+          <ImagePlaceholderGlyph />
+        )}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="truncate" style={{ fontSize: 12, fontWeight: 600 }}>
+      <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 2 }}>
+        <div
+          className="line-clamp-1"
+          style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.25 }}
+        >
           {d.title ?? node.content ?? "Item title"}
         </div>
         {d.meta && (
-          <div className="truncate" style={{ fontSize: 10, color: mutedColor(node) }}>
+          <div
+            className="line-clamp-2"
+            style={{ fontSize: 11, color: mutedColor(node), lineHeight: 1.35 }}
+          >
             {d.meta}
           </div>
         )}
       </div>
       {d.trailing && (
         <div
-          className="shrink-0"
-          style={{ fontSize: 12, fontWeight: 600 }}
+          className="shrink-0 text-right"
+          style={{ fontSize: 13, fontWeight: 600, maxWidth: 90 }}
         >
           {d.trailing}
         </div>
@@ -74,12 +85,12 @@ export const ListRowGlyph = ({ node }: { node: CanvasNode }) => {
 
 export const CardGlyph = ({ node }: { node: CanvasNode }) => {
   const d = node.data ?? {};
-  const imageH = Math.max(48, Math.round(node.size.height * 0.55));
+  const imageH = Math.max(72, Math.round(node.size.height * 0.55));
   const c = lineColor(node);
   return (
     <div className="flex h-full w-full flex-col">
       <div
-        className="relative w-full"
+        className="relative w-full overflow-hidden"
         style={{
           height: imageH,
           background: surface(node),
@@ -92,30 +103,54 @@ export const CardGlyph = ({ node }: { node: CanvasNode }) => {
             className="absolute left-2 top-2 rounded px-1.5 py-0.5"
             style={{
               fontSize: 9,
-              fontWeight: 600,
+              fontWeight: 700,
               background: "#ee4f3a",
               color: "#fff",
-              letterSpacing: 0.3,
+              letterSpacing: 0.4,
+              textTransform: "uppercase",
             }}
           >
             {d.badge}
           </span>
         )}
+        {d.trailing && (
+          <span
+            className="absolute right-2 top-2 rounded-full px-2 py-0.5"
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              background: "rgba(255,255,255,0.95)",
+              color: "#1a1a1a",
+            }}
+          >
+            {d.trailing}
+          </span>
+        )}
       </div>
       <div
         className="flex flex-1 flex-col justify-center"
-        style={{ padding: 8, gap: 2 }}
+        style={{ padding: 10, gap: 3 }}
       >
-        <div className="truncate" style={{ fontSize: 12, fontWeight: 600 }}>
+        <div
+          className="line-clamp-2"
+          style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25 }}
+        >
           {d.title ?? node.content ?? "Card title"}
         </div>
         {d.meta && (
-          <div className="truncate" style={{ fontSize: 10, color: mutedColor(node) }}>
+          <div
+            className="line-clamp-2"
+            style={{ fontSize: 10, color: mutedColor(node), lineHeight: 1.3 }}
+          >
             {d.meta}
           </div>
         )}
-        {d.trailing && (
-          <div style={{ fontSize: 11, fontWeight: 600 }}>{d.trailing}</div>
+        {typeof d.rating === "number" && (
+          <div className="flex items-center gap-1" style={{ fontSize: 10 }}>
+            <span style={{ color: "#f5a623" }}>★</span>
+            <span style={{ fontWeight: 600 }}>{d.rating.toFixed(1)}</span>
+            {d.reviews && <span style={{ color: mutedColor(node) }}>({d.reviews})</span>}
+          </div>
         )}
       </div>
     </div>
