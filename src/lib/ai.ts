@@ -176,7 +176,7 @@ MINI EXAMPLE (shape only — your real output covers the whole journey):
             { "kind": "leaf", "type": "list-row", "data": { "title": "New signup: Priya S.", "meta": "Pro plan · 4h ago", "trailing": "Trial", "glyph": "✨" } },
             { "kind": "leaf", "type": "list-row", "data": { "title": "Refund processed", "meta": "Order #8821 · 6h ago", "trailing": "-$89", "glyph": "↩" } }
           ]},
-          { "kind": "row", "kind": "stack", "direction": "row", "gap": 2, "children": [
+          { "kind": "stack", "direction": "row", "gap": 2, "children": [
             { "kind": "leaf", "type": "tag", "widthFrac": 0.3, "data": { "title": "Live", "tone": "success" } },
             { "kind": "leaf", "type": "avatar-stack", "widthFrac": 0.7, "data": { "count": 8, "meta": "viewing now" } }
           ]}
