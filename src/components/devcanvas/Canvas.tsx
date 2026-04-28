@@ -654,27 +654,47 @@ export const Canvas = ({
                     : n.style.justifyContent,
               }}
             >
-              {n.type === "text" && <span>{n.content}</span>}
-              {n.type === "button" && <span>{n.content}</span>}
-              {n.type === "input" && (
-                <span className="opacity-60" style={{ padding: 8 }}>
+              {n.type === "text" && (
+                <div
+                  className="h-full w-full"
+                  style={{
+                    lineHeight: 1.35,
+                    overflow: "hidden",
+                    wordBreak: "break-word",
+                  }}
+                >
                   {n.content}
-                </span>
+                </div>
+              )}
+              {n.type === "button" && (
+                <span className="truncate px-2">{n.content ?? "Button"}</span>
+              )}
+              {n.type === "input" && (
+                <div
+                  className="flex h-full w-full items-center"
+                  style={{ padding: "0 12px", gap: 8 }}
+                >
+                  <span style={{ opacity: 0.4, fontSize: 13 }}>⌕</span>
+                  <span className="truncate" style={{ opacity: 0.6, fontSize: 13 }}>
+                    {n.content ?? "Search…"}
+                  </span>
+                </div>
               )}
               {(n.type === "image" || n.type === "image-placeholder") && (
                 <ImagePlaceholderGlyph />
               )}
               {n.type === "icon-circle" && (
                 <div className="flex h-full w-full items-center justify-center">
-                  <span style={{ fontSize: Math.max(12, n.size.height * 0.4) }}>
+                  <span style={{ fontSize: Math.max(14, n.size.height * 0.42), lineHeight: 1 }}>
                     {n.data?.glyph ?? n.content ?? "★"}
                   </span>
                 </div>
               )}
               {n.type === "chip" && (
-                <div className="flex h-full w-full items-center justify-center px-3">
-                  <span className="truncate" style={{ fontSize: 11 }}>
-                    {n.content ?? "Chip"}
+                <div className="flex h-full w-full items-center justify-center" style={{ padding: "0 10px", gap: 4 }}>
+                  {n.data?.glyph && <span style={{ fontSize: 11 }}>{n.data.glyph}</span>}
+                  <span className="truncate" style={{ fontSize: 11, fontWeight: 500 }}>
+                    {n.data?.title ?? n.content ?? "Chip"}
                   </span>
                 </div>
               )}
@@ -685,6 +705,16 @@ export const Canvas = ({
               {n.type === "bottom-bar" && <BottomBarGlyph node={n} />}
               {n.type === "sidebar" && <SidebarGlyph node={n} />}
               {n.type === "stepper" && <StepperGlyph node={n} />}
+              {n.type === "kpi-card" && <KpiCardGlyph node={n} />}
+              {n.type === "slider" && <SliderGlyph node={n} />}
+              {n.type === "progress" && <ProgressGlyph node={n} />}
+              {n.type === "rating" && <RatingGlyph node={n} />}
+              {n.type === "avatar-stack" && <AvatarStackGlyph node={n} />}
+              {n.type === "tag" && <TagGlyph node={n} />}
+              {n.type === "toggle-row" && <ToggleRowGlyph node={n} />}
+              {n.type === "checkbox-row" && <CheckboxRowGlyph node={n} />}
+              {n.type === "chart-bar" && <ChartBarGlyph node={n} />}
+              {n.type === "chart-line" && <ChartLineGlyph node={n} />}
 
               {selected && (
                 <>
