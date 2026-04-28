@@ -15,7 +15,18 @@ export type NodeType =
   | "bottom-bar"         // sticky bottom action bar
   | "sidebar"            // vertical nav strip
   | "stepper"            // horizontal step indicator (1 ─ 2 ─ 3)
-  | "divider";           // 1px hairline
+  | "divider"            // 1px hairline
+  // ---- richer wireframe primitives ----
+  | "slider"             // horizontal range slider with track + thumb + value
+  | "avatar-stack"       // overlapping circular avatars + "+N more"
+  | "rating"             // ★★★★☆ + numeric score
+  | "progress"           // horizontal progress bar with %
+  | "kpi-card"           // dashboard KPI tile: label + big number + delta
+  | "tag"                // small status pill (Active / Pending / Failed)
+  | "checkbox-row"       // checkbox + label + meta
+  | "toggle-row"         // label + meta + iOS-style switch
+  | "chart-bar"          // bar chart sparkline
+  | "chart-line";        // line chart sparkline
 
 /** Semantic typographic role; pulled from token scale at render-time when set. */
 export type TextStyleRole =
@@ -55,6 +66,29 @@ export interface NodeData {
   glyph?: string; // single character or short token
   /** card */
   badge?: string;
+  /** slider/progress: 0..100 */
+  value?: number;
+  /** slider: range labels */
+  min?: string;
+  max?: string;
+  /** rating: 0..5 */
+  rating?: number;
+  /** rating: review count */
+  reviews?: number;
+  /** kpi-card: delta string like "+12%" */
+  delta?: string;
+  /** kpi-card: trend direction */
+  trend?: "up" | "down" | "flat";
+  /** avatar-stack: count */
+  count?: number;
+  /** chart: array of values 0..100 */
+  series?: number[];
+  /** toggle-row */
+  on?: boolean;
+  /** checkbox-row */
+  checked?: boolean;
+  /** tag color hint */
+  tone?: "success" | "warning" | "danger" | "info" | "neutral";
 }
 
 export interface CanvasNode {
@@ -244,6 +278,22 @@ export const defaultStyleFor = (
         return {
           background: WIREFRAME.border,
         };
+      case "slider":
+      case "progress":
+      case "chart-bar":
+      case "chart-line":
+        return { background: "transparent" };
+      case "avatar-stack":
+      case "rating":
+      case "kpi-card":
+      case "tag":
+      case "checkbox-row":
+      case "toggle-row":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 6,
+        };
       case "box":
       default:
         return {
@@ -328,6 +378,22 @@ export const defaultStyleFor = (
       return { color: "#9b9588", fontSize: 12 };
     case "divider":
       return { background: "#2a2622" };
+    case "slider":
+    case "progress":
+    case "chart-bar":
+    case "chart-line":
+      return { background: "transparent" };
+    case "avatar-stack":
+    case "rating":
+    case "kpi-card":
+    case "tag":
+    case "checkbox-row":
+    case "toggle-row":
+      return {
+        background: "#1a1714",
+        color: "#e9e4d8",
+        borderRadius: 8,
+      };
     case "box":
     default:
       return {
@@ -387,6 +453,24 @@ export const defaultSizeFor = (type: NodeType) => {
       return { width: 360, height: 24 };
     case "divider":
       return { width: 360, height: 1 };
+    case "slider":
+      return { width: 360, height: 48 };
+    case "progress":
+      return { width: 360, height: 24 };
+    case "kpi-card":
+      return { width: 200, height: 110 };
+    case "rating":
+      return { width: 160, height: 24 };
+    case "avatar-stack":
+      return { width: 140, height: 32 };
+    case "tag":
+      return { width: 80, height: 22 };
+    case "checkbox-row":
+    case "toggle-row":
+      return { width: 360, height: 56 };
+    case "chart-bar":
+    case "chart-line":
+      return { width: 360, height: 140 };
     default:
       return { width: 280, height: 180 };
   }
