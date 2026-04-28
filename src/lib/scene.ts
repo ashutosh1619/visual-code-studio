@@ -278,6 +278,22 @@ export const defaultStyleFor = (
         return {
           background: WIREFRAME.border,
         };
+      case "slider":
+      case "progress":
+      case "chart-bar":
+      case "chart-line":
+        return { background: "transparent" };
+      case "avatar-stack":
+      case "rating":
+      case "kpi-card":
+      case "tag":
+      case "checkbox-row":
+      case "toggle-row":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 6,
+        };
       case "box":
       default:
         return {
