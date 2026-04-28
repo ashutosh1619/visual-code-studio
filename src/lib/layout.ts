@@ -116,11 +116,11 @@ const leafHeight = (n: IANode, widthPx: number): number => {
     case "icon-circle":
       return Math.min(64, Math.max(40, snap(widthPx)));
     case "list-row":
-      return 72;
+      return 80;
     case "card":
-      return Math.max(128, snap(widthPx * 0.9));
+      return Math.max(160, snap(widthPx * 1.05));
     case "map-block":
-      return 200;
+      return Math.max(180, snap(widthPx * 0.6));
     case "segmented":
       return 40;
     case "bottom-bar":
