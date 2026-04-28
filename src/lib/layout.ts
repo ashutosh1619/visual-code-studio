@@ -126,9 +126,27 @@ const leafHeight = (n: IANode, widthPx: number): number => {
     case "bottom-bar":
       return 64;
     case "stepper":
-      return 32;
+      return 40;
     case "divider":
       return 8;
+    case "slider":
+      return 56;
+    case "progress":
+      return 28;
+    case "kpi-card":
+      return 112;
+    case "rating":
+      return 28;
+    case "avatar-stack":
+      return 36;
+    case "tag":
+      return 24;
+    case "checkbox-row":
+    case "toggle-row":
+      return 60;
+    case "chart-bar":
+    case "chart-line":
+      return Math.max(120, snap(widthPx * 0.45));
     case "box":
       return 80;
     default:
