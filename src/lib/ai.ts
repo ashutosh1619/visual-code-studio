@@ -163,16 +163,22 @@ MINI EXAMPLE (shape only — your real output covers the whole journey):
         "kind": "stack", "direction": "column", "gap": 2, "padding": 2,
         "children": [
           { "kind": "leaf", "type": "text", "textStyle": "h1", "content": "Good morning, Alex" },
-          { "kind": "leaf", "type": "text", "textStyle": "caption", "content": "Tuesday, March 12" },
+          { "kind": "leaf", "type": "text", "textStyle": "caption", "content": "Tuesday, March 12 · 9 unread" },
           { "kind": "grid", "columns": 3, "gap": 2, "children": [
-            { "kind": "leaf", "type": "card", "data": { "title": "MRR", "trailing": "$48.2k", "meta": "+12% MoM" } },
-            { "kind": "leaf", "type": "card", "data": { "title": "Active users", "trailing": "1,284", "meta": "+3.4%" } },
-            { "kind": "leaf", "type": "card", "data": { "title": "Churn", "trailing": "2.1%", "meta": "-0.3%" } }
+            { "kind": "leaf", "type": "kpi-card", "data": { "title": "MRR", "trailing": "$48.2k", "delta": "12.4%", "trend": "up", "glyph": "💰" } },
+            { "kind": "leaf", "type": "kpi-card", "data": { "title": "Active", "trailing": "1,284", "delta": "3.4%", "trend": "up", "glyph": "👥" } },
+            { "kind": "leaf", "type": "kpi-card", "data": { "title": "Churn", "trailing": "2.1%", "delta": "0.3%", "trend": "down", "glyph": "📉" } }
           ]},
-          { "kind": "leaf", "type": "text", "textStyle": "h2", "content": "Recent activity" },
+          { "kind": "leaf", "type": "chart-line", "height": 140, "data": { "title": "Revenue · 30d", "trailing": "+18.2%", "series": [22,28,24,32,38,30,42,40,52,48,60,58,66,72] } },
+          { "kind": "leaf", "type": "text", "textStyle": "h3", "content": "Recent activity" },
           { "kind": "stack", "direction": "column", "gap": 1, "children": [
-            { "kind": "leaf", "type": "list-row", "data": { "title": "Invoice #1042 paid", "meta": "Acme Corp · 2h ago", "trailing": "$2,400" } },
-            { "kind": "leaf", "type": "list-row", "data": { "title": "New signup", "meta": "Priya S. · 4h ago", "trailing": "Trial" } }
+            { "kind": "leaf", "type": "list-row", "data": { "title": "Invoice #1042 paid", "meta": "Acme Corp · 2h ago", "trailing": "$2,400", "glyph": "💳" } },
+            { "kind": "leaf", "type": "list-row", "data": { "title": "New signup: Priya S.", "meta": "Pro plan · 4h ago", "trailing": "Trial", "glyph": "✨" } },
+            { "kind": "leaf", "type": "list-row", "data": { "title": "Refund processed", "meta": "Order #8821 · 6h ago", "trailing": "-$89", "glyph": "↩" } }
+          ]},
+          { "kind": "row", "kind": "stack", "direction": "row", "gap": 2, "children": [
+            { "kind": "leaf", "type": "tag", "widthFrac": 0.3, "data": { "title": "Live", "tone": "success" } },
+            { "kind": "leaf", "type": "avatar-stack", "widthFrac": 0.7, "data": { "count": 8, "meta": "viewing now" } }
           ]}
         ]
       }
