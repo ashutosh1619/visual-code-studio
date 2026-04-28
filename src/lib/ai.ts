@@ -282,14 +282,20 @@ const VALID_NODE_TYPES: NodeType[] = [
   "box", "text", "image", "button", "input",
   "image-placeholder", "icon-circle", "chip", "list-row", "card",
   "map-block", "segmented", "bottom-bar", "sidebar", "stepper", "divider",
+  "slider", "avatar-stack", "rating", "progress", "kpi-card", "tag",
+  "checkbox-row", "toggle-row", "chart-bar", "chart-line",
 ];
+
+const VALID_TONES = ["success", "warning", "danger", "info", "neutral"] as const;
+const VALID_TRENDS = ["up", "down", "flat"] as const;
 
 const sanitizeData = (raw: any) => {
   if (!raw || typeof raw !== "object") return undefined;
   const data: Record<string, unknown> = {};
   if (typeof raw.title === "string") data.title = raw.title;
   if (typeof raw.meta === "string") data.meta = raw.meta;
-  if (typeof raw.trailing === "string") data.trailing = raw.trailing;
+  if (typeof raw.trailing === "string" || typeof raw.trailing === "number")
+    data.trailing = String(raw.trailing);
   if (typeof raw.glyph === "string") data.glyph = raw.glyph.slice(0, 3);
   if (typeof raw.badge === "string") data.badge = raw.badge.slice(0, 16);
   if (Array.isArray(raw.options))
@@ -297,6 +303,23 @@ const sanitizeData = (raw: any) => {
       .filter((o: unknown) => typeof o === "string")
       .slice(0, 8) as string[];
   if (typeof raw.active === "number") data.active = Math.max(0, Math.min(7, raw.active));
+  if (typeof raw.value === "number") data.value = Math.max(0, Math.min(100, raw.value));
+  if (typeof raw.min === "string" || typeof raw.min === "number") data.min = String(raw.min);
+  if (typeof raw.max === "string" || typeof raw.max === "number") data.max = String(raw.max);
+  if (typeof raw.rating === "number") data.rating = Math.max(0, Math.min(5, raw.rating));
+  if (typeof raw.reviews === "number") data.reviews = Math.max(0, raw.reviews);
+  if (typeof raw.delta === "string") data.delta = raw.delta.slice(0, 12);
+  if (typeof raw.trend === "string" && (VALID_TRENDS as readonly string[]).includes(raw.trend))
+    data.trend = raw.trend;
+  if (typeof raw.count === "number") data.count = Math.max(0, Math.round(raw.count));
+  if (Array.isArray(raw.series))
+    data.series = raw.series
+      .filter((v: unknown) => typeof v === "number")
+      .slice(0, 32) as number[];
+  if (typeof raw.on === "boolean") data.on = raw.on;
+  if (typeof raw.checked === "boolean") data.checked = raw.checked;
+  if (typeof raw.tone === "string" && (VALID_TONES as readonly string[]).includes(raw.tone))
+    data.tone = raw.tone;
   return Object.keys(data).length ? data : undefined;
 };
 
