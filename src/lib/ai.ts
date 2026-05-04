@@ -349,6 +349,31 @@ const sanitizeData = (raw: any) => {
   if (typeof raw.checked === "boolean") data.checked = raw.checked;
   if (typeof raw.tone === "string" && (VALID_TONES as readonly string[]).includes(raw.tone))
     data.tone = raw.tone;
+  if (Array.isArray(raw.columns))
+    data.columns = raw.columns.filter((s: unknown) => typeof s === "string").slice(0, 6) as string[];
+  if (Array.isArray(raw.rows))
+    data.rows = raw.rows
+      .filter((r: unknown) => Array.isArray(r))
+      .slice(0, 8)
+      .map((r: unknown) => (r as unknown[]).filter((c) => typeof c === "string" || typeof c === "number").slice(0, 6).map(String)) as string[][];
+  if (typeof raw.month === "string") data.month = raw.month.slice(0, 24);
+  if (typeof raw.today === "number") data.today = Math.max(1, Math.min(31, Math.round(raw.today)));
+  if (Array.isArray(raw.marked))
+    data.marked = raw.marked
+      .filter((n: unknown) => typeof n === "number")
+      .map((n: number) => Math.max(1, Math.min(31, Math.round(n))))
+      .slice(0, 31);
+  if (Array.isArray(raw.events))
+    data.events = raw.events
+      .filter((e: any) => e && typeof e === "object" && typeof e.title === "string")
+      .slice(0, 8)
+      .map((e: any) => ({
+        title: String(e.title).slice(0, 80),
+        meta: typeof e.meta === "string" ? e.meta.slice(0, 80) : undefined,
+        tone: typeof e.tone === "string" && (VALID_TONES as readonly string[]).includes(e.tone) ? e.tone : undefined,
+      }));
+  if (Array.isArray(raw.trail))
+    data.trail = raw.trail.filter((s: unknown) => typeof s === "string").slice(0, 5) as string[];
   return Object.keys(data).length ? data : undefined;
 };
 
