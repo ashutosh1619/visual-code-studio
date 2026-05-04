@@ -26,7 +26,20 @@ export type NodeType =
   | "checkbox-row"       // checkbox + label + meta
   | "toggle-row"         // label + meta + iOS-style switch
   | "chart-bar"          // bar chart sparkline
-  | "chart-line";        // line chart sparkline
+  | "chart-line"         // line chart sparkline
+  | "chart-donut"        // donut/ring chart with center label
+  // ---- structured data primitives ----
+  | "table"              // multi-row data table with header
+  | "calendar"           // month grid with today + dot markers
+  | "timeline"           // vertical timeline of events
+  | "breadcrumb"         // Home › Section › Page
+  | "tabs"               // top tab strip with underline indicator
+  | "search-bar"         // input + leading icon + trailing chip
+  | "notification"       // toast-style row: icon + title + meta
+  | "file-row"           // file/document row with type icon + size
+  | "code-block"         // monospace block of fake code
+  | "video-player"       // image-placeholder with play button overlay
+  | "stat-row";          // label + big number + sparkline mini
 
 /** Semantic typographic role; pulled from token scale at render-time when set. */
 export type TextStyleRole =
@@ -89,6 +102,17 @@ export interface NodeData {
   checked?: boolean;
   /** tag color hint */
   tone?: "success" | "warning" | "danger" | "info" | "neutral";
+  /** table: column headers + rows of strings */
+  columns?: string[];
+  rows?: string[][];
+  /** calendar: month label, today day, marked days */
+  month?: string;
+  today?: number;
+  marked?: number[];
+  /** timeline: array of events */
+  events?: Array<{ title: string; meta?: string; tone?: NodeData["tone"] }>;
+  /** breadcrumb: trail */
+  trail?: string[];
 }
 
 export interface CanvasNode {
@@ -282,6 +306,7 @@ export const defaultStyleFor = (
       case "progress":
       case "chart-bar":
       case "chart-line":
+      case "chart-donut":
         return { background: "transparent" };
       case "avatar-stack":
       case "rating":
@@ -289,10 +314,41 @@ export const defaultStyleFor = (
       case "tag":
       case "checkbox-row":
       case "toggle-row":
+      case "stat-row":
         return {
           background: WIREFRAME.paper,
           color: WIREFRAME.text,
           borderRadius: 6,
+        };
+      case "table":
+      case "calendar":
+      case "timeline":
+      case "notification":
+      case "file-row":
+      case "video-player":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+      case "code-block":
+        return {
+          background: "#0f172a",
+          color: "#e2e8f0",
+          borderRadius: 6,
+          fontSize: 11,
+        };
+      case "tabs":
+      case "breadcrumb":
+      case "search-bar":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 4,
+          borderWidth: type === "search-bar" ? 1 : 0,
+          borderColor: WIREFRAME.border,
         };
       case "box":
       default:
@@ -382,6 +438,7 @@ export const defaultStyleFor = (
     case "progress":
     case "chart-bar":
     case "chart-line":
+    case "chart-donut":
       return { background: "transparent" };
     case "avatar-stack":
     case "rating":
@@ -389,11 +446,25 @@ export const defaultStyleFor = (
     case "tag":
     case "checkbox-row":
     case "toggle-row":
+    case "stat-row":
       return {
         background: "#1a1714",
         color: "#e9e4d8",
         borderRadius: 8,
       };
+    case "table":
+    case "calendar":
+    case "timeline":
+    case "notification":
+    case "file-row":
+    case "video-player":
+      return { background: "#1a1714", color: "#e9e4d8", borderRadius: 8, borderWidth: 1, borderColor: "#2a2622" };
+    case "code-block":
+      return { background: "#0f172a", color: "#e2e8f0", borderRadius: 8, fontSize: 11 };
+    case "tabs":
+    case "breadcrumb":
+    case "search-bar":
+      return { background: "#1a1714", color: "#e9e4d8", borderRadius: 6, borderWidth: type === "search-bar" ? 1 : 0, borderColor: "#2a2622" };
     case "box":
     default:
       return {
@@ -471,6 +542,30 @@ export const defaultSizeFor = (type: NodeType) => {
     case "chart-bar":
     case "chart-line":
       return { width: 360, height: 140 };
+    case "chart-donut":
+      return { width: 200, height: 160 };
+    case "table":
+      return { width: 372, height: 220 };
+    case "calendar":
+      return { width: 360, height: 260 };
+    case "timeline":
+      return { width: 360, height: 220 };
+    case "breadcrumb":
+      return { width: 360, height: 24 };
+    case "tabs":
+      return { width: 372, height: 36 };
+    case "search-bar":
+      return { width: 372, height: 44 };
+    case "notification":
+      return { width: 360, height: 64 };
+    case "file-row":
+      return { width: 360, height: 60 };
+    case "code-block":
+      return { width: 372, height: 140 };
+    case "video-player":
+      return { width: 372, height: 200 };
+    case "stat-row":
+      return { width: 360, height: 64 };
     default:
       return { width: 280, height: 180 };
   }

@@ -23,6 +23,18 @@ import {
   CheckboxRowGlyph,
   ChartBarGlyph,
   ChartLineGlyph,
+  ChartDonutGlyph,
+  TableGlyph,
+  CalendarGlyph,
+  TimelineGlyph,
+  BreadcrumbGlyph,
+  TabsGlyph,
+  SearchBarGlyph,
+  NotificationGlyph,
+  FileRowGlyph,
+  CodeBlockGlyph,
+  VideoPlayerGlyph,
+  StatRowGlyph,
 } from "./PrimitiveGlyphs";
 
 interface Props {
@@ -715,6 +727,18 @@ export const Canvas = ({
               {n.type === "checkbox-row" && <CheckboxRowGlyph node={n} />}
               {n.type === "chart-bar" && <ChartBarGlyph node={n} />}
               {n.type === "chart-line" && <ChartLineGlyph node={n} />}
+              {n.type === "chart-donut" && <ChartDonutGlyph node={n} />}
+              {n.type === "table" && <TableGlyph node={n} />}
+              {n.type === "calendar" && <CalendarGlyph node={n} />}
+              {n.type === "timeline" && <TimelineGlyph node={n} />}
+              {n.type === "breadcrumb" && <BreadcrumbGlyph node={n} />}
+              {n.type === "tabs" && <TabsGlyph node={n} />}
+              {n.type === "search-bar" && <SearchBarGlyph node={n} />}
+              {n.type === "notification" && <NotificationGlyph node={n} />}
+              {n.type === "file-row" && <FileRowGlyph node={n} />}
+              {n.type === "code-block" && <CodeBlockGlyph node={n} />}
+              {n.type === "video-player" && <VideoPlayerGlyph node={n} />}
+              {n.type === "stat-row" && <StatRowGlyph node={n} />}
 
               {selected && (
                 <>

@@ -690,3 +690,406 @@ export const ChartLineGlyph = ({ node }: { node: CanvasNode }) => {
     </div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// New structured-data primitives
+// ─────────────────────────────────────────────────────────────────────────
+
+export const TableGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const cols = d.columns ?? ["Name", "Status", "Amount", "Date"];
+  const rows = d.rows ?? [
+    ["Acme Corp", "Paid", "$2,400", "Mar 12"],
+    ["Globex", "Pending", "$1,180", "Mar 11"],
+    ["Initech", "Paid", "$890", "Mar 10"],
+    ["Umbrella", "Failed", "$540", "Mar 09"],
+    ["Stark Ind", "Paid", "$3,200", "Mar 08"],
+  ];
+  const c = lineColor(node);
+  const txt = isHifi(node) ? "#e9e4d8" : "#1a1a1a";
+  return (
+    <div className="flex h-full w-full flex-col overflow-hidden" style={{ color: txt }}>
+      <div
+        className="flex w-full items-center"
+        style={{
+          padding: "8px 10px",
+          borderBottom: `1px solid ${c}`,
+          background: isHifi(node) ? "#15120f" : "#fafafa",
+          fontSize: 9,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          color: mutedColor(node),
+          gap: 8,
+        }}
+      >
+        {cols.map((h, i) => (
+          <span key={i} className="flex-1 truncate">{h}</span>
+        ))}
+      </div>
+      <div className="flex-1">
+        {rows.map((r, ri) => (
+          <div
+            key={ri}
+            className="flex w-full items-center"
+            style={{
+              padding: "6px 10px",
+              borderBottom: ri < rows.length - 1 ? `1px solid ${c}` : "none",
+              fontSize: 11,
+              gap: 8,
+            }}
+          >
+            {r.map((cell, ci) => {
+              const status = /paid|active|success/i.test(cell)
+                ? { bg: "#dcfce7", fg: "#15803d" }
+                : /pending|warning/i.test(cell)
+                ? { bg: "#fef3c7", fg: "#a16207" }
+                : /failed|danger|error/i.test(cell)
+                ? { bg: "#fee2e2", fg: "#b91c1c" }
+                : null;
+              return (
+                <span key={ci} className="flex-1 truncate" style={{ fontWeight: ci === 0 ? 600 : 400 }}>
+                  {status ? (
+                    <span
+                      className="rounded-full"
+                      style={{
+                        background: status.bg,
+                        color: status.fg,
+                        padding: "2px 8px",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {cell}
+                    </span>
+                  ) : (
+                    cell
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const CalendarGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const month = d.month ?? "March 2026";
+  const today = d.today ?? 12;
+  const marked = d.marked ?? [3, 8, 14, 18, 22, 27];
+  const c = lineColor(node);
+  const days = Array.from({ length: 35 }).map((_, i) => i - 2); // start offset
+  return (
+    <div className="flex h-full w-full flex-col" style={{ padding: 10, gap: 6, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}>
+      <div className="flex items-center justify-between" style={{ fontSize: 11, fontWeight: 600 }}>
+        <span>{month}</span>
+        <span style={{ color: mutedColor(node), fontSize: 14 }}>‹ ›</span>
+      </div>
+      <div className="grid grid-cols-7" style={{ fontSize: 8, color: mutedColor(node), fontWeight: 600, textTransform: "uppercase" }}>
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+          <span key={i} className="text-center">{d}</span>
+        ))}
+      </div>
+      <div className="grid flex-1 grid-cols-7" style={{ gap: 2 }}>
+        {days.map((day, i) => {
+          const isValid = day > 0 && day <= 31;
+          const isToday = day === today;
+          const isMarked = marked.includes(day);
+          return (
+            <div
+              key={i}
+              className="flex items-center justify-center rounded-full"
+              style={{
+                fontSize: 10,
+                fontWeight: isToday ? 700 : 400,
+                background: isToday ? "#ee4f3a" : "transparent",
+                color: isToday ? "#fff" : !isValid ? "transparent" : isMarked ? "#ee4f3a" : "inherit",
+                border: isMarked && !isToday ? `1px solid #ee4f3a` : "none",
+                aspectRatio: "1",
+              }}
+            >
+              {isValid ? day : ""}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+export const TimelineGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const events = d.events ?? [
+    { title: "Order placed", meta: "Mar 12 · 2:30 PM", tone: "success" as const },
+    { title: "Payment confirmed", meta: "Mar 12 · 2:31 PM", tone: "success" as const },
+    { title: "Preparing shipment", meta: "Mar 12 · 4:10 PM", tone: "info" as const },
+    { title: "Out for delivery", meta: "Mar 13 · 9:00 AM", tone: "warning" as const },
+  ];
+  const palette = { success: "#16a34a", warning: "#f5a623", danger: "#b91c1c", info: "#3b82f6", neutral: "#94a3b8" };
+  const c = lineColor(node);
+  return (
+    <div className="flex h-full w-full flex-col" style={{ padding: 12, gap: 10, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}>
+      {events.map((e, i) => (
+        <div key={i} className="relative flex items-start" style={{ gap: 10 }}>
+          <div className="relative flex shrink-0 flex-col items-center" style={{ width: 12 }}>
+            <div
+              className="rounded-full"
+              style={{ width: 10, height: 10, background: palette[e.tone ?? "info"], border: "2px solid #fff" }}
+            />
+            {i < events.length - 1 && (
+              <div className="absolute" style={{ top: 12, bottom: -16, width: 1, background: c }} />
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 1 }}>
+            <span style={{ fontSize: 11, fontWeight: 600 }} className="line-clamp-1">{e.title}</span>
+            {e.meta && <span style={{ fontSize: 10, color: mutedColor(node) }}>{e.meta}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export const BreadcrumbGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const trail = d.trail ?? ["Home", "Projects", "DevCanvas"];
+  return (
+    <div className="flex h-full w-full items-center truncate" style={{ fontSize: 11, gap: 6, color: mutedColor(node) }}>
+      {trail.map((t, i) => (
+        <span key={i} className="flex items-center" style={{ gap: 6 }}>
+          <span style={{ color: i === trail.length - 1 ? (isHifi(node) ? "#e9e4d8" : "#1a1a1a") : mutedColor(node), fontWeight: i === trail.length - 1 ? 600 : 400 }}>
+            {t}
+          </span>
+          {i < trail.length - 1 && <span style={{ opacity: 0.5 }}>›</span>}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+export const TabsGlyph = ({ node }: { node: CanvasNode }) => {
+  const opts = node.data?.options ?? ["Overview", "Activity", "Settings"];
+  const active = node.data?.active ?? 0;
+  const c = lineColor(node);
+  return (
+    <div className="flex h-full w-full items-end" style={{ borderBottom: `1px solid ${c}`, gap: 4 }}>
+      {opts.map((o, i) => (
+        <div
+          key={i}
+          className="relative flex items-center justify-center"
+          style={{
+            padding: "8px 14px",
+            fontSize: 12,
+            fontWeight: i === active ? 600 : 400,
+            color: i === active ? (isHifi(node) ? "#e9e4d8" : "#1a1a1a") : mutedColor(node),
+          }}
+        >
+          {o}
+          {i === active && (
+            <div className="absolute" style={{ bottom: -1, left: 8, right: 8, height: 2, background: "#ee4f3a", borderRadius: 2 }} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export const SearchBarGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  return (
+    <div className="flex h-full w-full items-center" style={{ padding: "0 12px", gap: 10, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}>
+      <span style={{ fontSize: 14, opacity: 0.5 }}>⌕</span>
+      <span className="flex-1 truncate" style={{ fontSize: 12, color: mutedColor(node) }}>
+        {d.title ?? node.content ?? "Search anything…"}
+      </span>
+      {d.trailing && (
+        <span
+          className="rounded"
+          style={{ fontSize: 10, fontWeight: 600, padding: "3px 6px", background: lineColor(node), color: mutedColor(node) }}
+        >
+          {d.trailing}
+        </span>
+      )}
+    </div>
+  );
+};
+
+export const NotificationGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const tone = d.tone ?? "info";
+  const palette: Record<string, string> = { success: "#16a34a", warning: "#f5a623", danger: "#b91c1c", info: "#3b82f6", neutral: "#94a3b8" };
+  const dot = palette[tone];
+  return (
+    <div className="flex h-full w-full items-start" style={{ padding: 12, gap: 10, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}>
+      <div
+        className="flex shrink-0 items-center justify-center rounded-full"
+        style={{ width: 28, height: 28, background: dot + "22", color: dot, fontSize: 14 }}
+      >
+        {d.glyph ?? "🔔"}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 1 }}>
+        <span style={{ fontSize: 12, fontWeight: 600 }} className="line-clamp-1">{d.title ?? "Notification"}</span>
+        {d.meta && <span style={{ fontSize: 10, color: mutedColor(node) }} className="line-clamp-2">{d.meta}</span>}
+      </div>
+      {d.trailing && <span style={{ fontSize: 10, color: mutedColor(node) }}>{d.trailing}</span>}
+    </div>
+  );
+};
+
+export const FileRowGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const ext = (d.glyph ?? "PDF").toUpperCase().slice(0, 4);
+  const colors: Record<string, string> = { PDF: "#dc2626", DOC: "#2563eb", XLS: "#16a34a", IMG: "#a855f7", ZIP: "#f59e0b", PNG: "#a855f7", JPG: "#a855f7", MP4: "#ec4899" };
+  const color = colors[ext] ?? "#64748b";
+  return (
+    <div className="flex h-full w-full items-center" style={{ padding: 10, gap: 12, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}>
+      <div
+        className="flex shrink-0 items-center justify-center rounded"
+        style={{ width: 36, height: 40, background: color + "18", color, fontSize: 9, fontWeight: 800, letterSpacing: 0.5 }}
+      >
+        {ext}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 2 }}>
+        <span style={{ fontSize: 12, fontWeight: 600 }} className="line-clamp-1">{d.title ?? "Document.pdf"}</span>
+        {d.meta && <span style={{ fontSize: 10, color: mutedColor(node) }}>{d.meta}</span>}
+      </div>
+      {d.trailing && <span style={{ fontSize: 11, fontWeight: 600 }}>{d.trailing}</span>}
+    </div>
+  );
+};
+
+export const CodeBlockGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const lines = (d.options as string[] | undefined) ?? [
+    "const config = {",
+    "  apiKey: process.env.KEY,",
+    "  region: 'us-east-1',",
+    "  retries: 3,",
+    "};",
+    "export default config;",
+  ];
+  return (
+    <div className="flex h-full w-full flex-col overflow-hidden" style={{ padding: 10, gap: 2, fontFamily: "ui-monospace, monospace", color: "#e2e8f0", background: "#0f172a", borderRadius: 6 }}>
+      {d.title && (
+        <div className="flex items-center gap-1.5 pb-1" style={{ fontSize: 9, color: "#94a3b8" }}>
+          <span className="h-2 w-2 rounded-full" style={{ background: "#ef4444" }} />
+          <span className="h-2 w-2 rounded-full" style={{ background: "#f59e0b" }} />
+          <span className="h-2 w-2 rounded-full" style={{ background: "#10b981" }} />
+          <span className="ml-2">{d.title}</span>
+        </div>
+      )}
+      {lines.map((l, i) => (
+        <div key={i} className="flex" style={{ gap: 8, fontSize: 10, lineHeight: 1.5 }}>
+          <span style={{ color: "#475569", width: 16, textAlign: "right" }}>{i + 1}</span>
+          <span className="truncate">
+            {l.split(/(\b(?:const|let|var|export|default|function|return|import|from|process|env)\b)/).map((part, j) =>
+              /^(const|let|var|export|default|function|return|import|from)$/.test(part)
+                ? <span key={j} style={{ color: "#c084fc" }}>{part}</span>
+                : /process|env/.test(part)
+                ? <span key={j} style={{ color: "#fbbf24" }}>{part}</span>
+                : <span key={j}>{part}</span>
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export const VideoPlayerGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  return (
+    <div className="relative h-full w-full overflow-hidden" style={{ background: surface(node) }}>
+      <ImagePlaceholderGlyph />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className="flex items-center justify-center rounded-full"
+          style={{ width: 48, height: 48, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 18, paddingLeft: 4 }}
+        >
+          ▶
+        </div>
+      </div>
+      <div
+        className="absolute bottom-0 left-0 right-0 flex items-center"
+        style={{ padding: "8px 10px", gap: 8, background: "linear-gradient(transparent, rgba(0,0,0,0.6))", color: "#fff" }}
+      >
+        <span style={{ fontSize: 10 }}>{d.meta ?? "0:42"}</span>
+        <div className="relative flex-1" style={{ height: 3, background: "rgba(255,255,255,0.3)", borderRadius: 999 }}>
+          <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: `${d.value ?? 35}%`, background: "#ee4f3a" }} />
+        </div>
+        <span style={{ fontSize: 10 }}>{d.trailing ?? "2:18"}</span>
+      </div>
+    </div>
+  );
+};
+
+export const ChartDonutGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const series = d.series ?? [42, 28, 18, 12];
+  const palette = ["#ee4f3a", "#3b82f6", "#16a34a", "#f5a623", "#a855f7"];
+  const total = series.reduce((s, v) => s + v, 0) || 1;
+  let acc = 0;
+  const r = 28;
+  const cx = 36;
+  const cy = 36;
+  const segs = series.map((v, i) => {
+    const start = (acc / total) * Math.PI * 2 - Math.PI / 2;
+    acc += v;
+    const end = (acc / total) * Math.PI * 2 - Math.PI / 2;
+    const large = end - start > Math.PI ? 1 : 0;
+    const x1 = cx + Math.cos(start) * r;
+    const y1 = cy + Math.sin(start) * r;
+    const x2 = cx + Math.cos(end) * r;
+    const y2 = cy + Math.sin(end) * r;
+    return { d: `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`, color: palette[i % palette.length] };
+  });
+  return (
+    <div className="flex h-full w-full items-center" style={{ padding: 10, gap: 10, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}>
+      <svg viewBox="0 0 72 72" style={{ width: 80, height: 80, flexShrink: 0 }}>
+        {segs.map((s, i) => <path key={i} d={s.d} fill={s.color} />)}
+        <circle cx={cx} cy={cy} r={16} fill={isHifi(node) ? "#1a1714" : "#fff"} />
+        <text x={cx} y={cy + 4} textAnchor="middle" style={{ fontSize: 11, fontWeight: 700, fill: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}>
+          {d.trailing ?? `${total}`}
+        </text>
+      </svg>
+      <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 4 }}>
+        {(d.options ?? ["Direct", "Search", "Social", "Email"]).slice(0, 4).map((label, i) => (
+          <div key={i} className="flex items-center" style={{ fontSize: 10, gap: 6 }}>
+            <span style={{ width: 8, height: 8, background: palette[i % palette.length], borderRadius: 2 }} />
+            <span className="flex-1 truncate" style={{ color: mutedColor(node) }}>{label}</span>
+            <span style={{ fontWeight: 600 }}>{Math.round((series[i] / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const StatRowGlyph = ({ node }: { node: CanvasNode }) => {
+  const d = node.data ?? {};
+  const series = d.series ?? defaultSeries(8);
+  const max = Math.max(...series, 1);
+  const points = series.map((v, i) => `${(i / (series.length - 1)) * 80},${24 - (v / max) * 22}`).join(" ");
+  const trend = d.trend ?? "up";
+  const trendColor = trend === "down" ? "#dc2626" : trend === "flat" ? mutedColor(node) : "#16a34a";
+  return (
+    <div className="flex h-full w-full items-center" style={{ padding: 12, gap: 12, color: isHifi(node) ? "#e9e4d8" : "#1a1a1a" }}>
+      <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 2 }}>
+        <span style={{ fontSize: 10, color: mutedColor(node), fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }} className="line-clamp-1">
+          {d.title ?? "Metric"}
+        </span>
+        <div className="flex items-baseline" style={{ gap: 6 }}>
+          <span style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4 }}>{d.trailing ?? "—"}</span>
+          {d.delta && <span style={{ fontSize: 10, color: trendColor, fontWeight: 600 }}>{d.delta}</span>}
+        </div>
+      </div>
+      <svg viewBox="0 0 80 24" style={{ width: 80, height: 32, flexShrink: 0 }}>
+        <polyline points={points} fill="none" stroke={trendColor} strokeWidth={1.5} />
+      </svg>
+    </div>
+  );
+};

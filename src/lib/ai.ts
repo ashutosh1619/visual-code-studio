@@ -112,6 +112,18 @@ PrimitiveType vocabulary — pick the SEMANTICALLY RIGHT one. NEVER use "text" f
   • toggle-row           — settings switch: data.title, data.meta, data.on (bool)
   • chart-bar            — bar chart: data.title, data.trailing (delta), data.series (array of 6-12 numbers 0-100)
   • chart-line           — line chart: data.title, data.trailing ("+12.4%"), data.series (array of 8-16 numbers)
+  • chart-donut          — donut chart: data.series (3-5 numbers), data.options (segment labels), data.trailing (center label e.g. "100%")
+  • table                — data table: data.columns (3-5 headers), data.rows (4-6 rows of strings). Status words like "Paid"/"Pending"/"Failed" auto-color.
+  • calendar             — month view: data.month ("March 2026"), data.today (12), data.marked ([3,8,14,22])
+  • timeline             — vertical event log: data.events ([{title, meta, tone}]) — order chronologically
+  • breadcrumb           — nav trail: data.trail (["Home","Projects","DevCanvas"])
+  • tabs                 — top tab strip: data.options + data.active
+  • search-bar           — full search field: data.title (placeholder), data.trailing ("⌘K")
+  • notification         — toast row: data.title, data.meta, data.glyph (✅ ⚠️ ℹ️), data.tone, data.trailing (timestamp)
+  • file-row             — file/document: data.title ("report.pdf"), data.meta ("2.4 MB · Mar 12"), data.glyph ("PDF"|"DOC"|"XLS"|"IMG"|"ZIP"|"MP4"), data.trailing (download CTA)
+  • code-block           — code snippet: data.title (filename), data.options (array of code lines, 4-8)
+  • video-player         — video tile: data.meta ("0:42"), data.trailing ("2:18"), data.value (0-100 progress)
+  • stat-row             — single metric with sparkline: data.title, data.trailing ("$48.2k"), data.delta ("+12%"), data.trend, data.series
   • box                  — generic surface — AVOID. Use a specific primitive instead.
 
 SECTION TEMPLATES — compose these wherever they fit the domain:
@@ -128,13 +140,24 @@ SECTION TEMPLATES — compose these wherever they fit the domain:
   • Settings page    → stack[ text(h2), toggle-row x4-5, divider, checkbox-row x3 ]
   • Profile header   → row[ image-placeholder(circle), stack[text(h2), text(caption), avatar-stack] ]
   • Empty state      → stack[ image-placeholder, text(h2), text(body), button ]
+  • Data table page  → stack[ breadcrumb, text(h1), row[search-bar(0.7), button(0.3)], tabs, table ]
+  • Analytics page   → stack[ text(h1), grid(3)[kpi-card x3], chart-line, row[chart-donut(0.5), chart-bar(0.5)] ]
+  • Inbox / log      → stack[ text(h2), notification x4-6 with mixed tones ]
+  • Files browser    → stack[ breadcrumb, search-bar, file-row x5-7 with varied extensions ]
+  • Order tracking   → stack[ text(h1), timeline, divider, list-row x2 ]
+  • Calendar surface → stack[ text(h2), row[calendar(0.6), stack(0.4)[list-row x3 of events]] ]
+  • Dev tools page   → stack[ text(h2), tabs, code-block, row[button, button] ]
+  • Video / media    → stack[ video-player, text(h2), text(body), row[avatar-stack, button] ]
 
 HARD RULES (non-negotiable):
 - Page area is 420×720. Root container is a vertical "stack" with padding 2.
 - Generate 5-8 pages covering the WHOLE journey for the inferred domain.
 - Per page: 14-28 leaves. DENSE, realistic, domain-specific copy — names, numbers, dates, statuses, prices, percentages, real-world IDs.
 - ALWAYS use kpi-card for dashboard metrics (NOT card with title="MRR")
-- ALWAYS use chart-bar/chart-line for analytics screens — every dashboard MUST have at least one chart
+- ALWAYS use chart-bar/chart-line/chart-donut for analytics — every dashboard MUST have at least one chart, ideally two of different types
+- ALWAYS use table for tabular data (transactions, users, orders) — never fake it with list-rows
+- ALWAYS use timeline for chronological events (order tracking, audit log, activity history)
+- ALWAYS use breadcrumb on detail/nested pages and tabs to chunk content within a page
 - ALWAYS use rating + reviews on product/restaurant/listing cards
 - ALWAYS use tag (with tone) for statuses like "Active", "Pending", "Paid", "Failed"
 - ALWAYS use slider for price/distance/range filters
@@ -310,7 +333,9 @@ const VALID_NODE_TYPES: NodeType[] = [
   "image-placeholder", "icon-circle", "chip", "list-row", "card",
   "map-block", "segmented", "bottom-bar", "sidebar", "stepper", "divider",
   "slider", "avatar-stack", "rating", "progress", "kpi-card", "tag",
-  "checkbox-row", "toggle-row", "chart-bar", "chart-line",
+  "checkbox-row", "toggle-row", "chart-bar", "chart-line", "chart-donut",
+  "table", "calendar", "timeline", "breadcrumb", "tabs", "search-bar",
+  "notification", "file-row", "code-block", "video-player", "stat-row",
 ];
 
 const VALID_TONES = ["success", "warning", "danger", "info", "neutral"] as const;
@@ -347,6 +372,31 @@ const sanitizeData = (raw: any) => {
   if (typeof raw.checked === "boolean") data.checked = raw.checked;
   if (typeof raw.tone === "string" && (VALID_TONES as readonly string[]).includes(raw.tone))
     data.tone = raw.tone;
+  if (Array.isArray(raw.columns))
+    data.columns = raw.columns.filter((s: unknown) => typeof s === "string").slice(0, 6) as string[];
+  if (Array.isArray(raw.rows))
+    data.rows = raw.rows
+      .filter((r: unknown) => Array.isArray(r))
+      .slice(0, 8)
+      .map((r: unknown) => (r as unknown[]).filter((c) => typeof c === "string" || typeof c === "number").slice(0, 6).map(String)) as string[][];
+  if (typeof raw.month === "string") data.month = raw.month.slice(0, 24);
+  if (typeof raw.today === "number") data.today = Math.max(1, Math.min(31, Math.round(raw.today)));
+  if (Array.isArray(raw.marked))
+    data.marked = raw.marked
+      .filter((n: unknown) => typeof n === "number")
+      .map((n: number) => Math.max(1, Math.min(31, Math.round(n))))
+      .slice(0, 31);
+  if (Array.isArray(raw.events))
+    data.events = raw.events
+      .filter((e: any) => e && typeof e === "object" && typeof e.title === "string")
+      .slice(0, 8)
+      .map((e: any) => ({
+        title: String(e.title).slice(0, 80),
+        meta: typeof e.meta === "string" ? e.meta.slice(0, 80) : undefined,
+        tone: typeof e.tone === "string" && (VALID_TONES as readonly string[]).includes(e.tone) ? e.tone : undefined,
+      }));
+  if (Array.isArray(raw.trail))
+    data.trail = raw.trail.filter((s: unknown) => typeof s === "string").slice(0, 5) as string[];
   return Object.keys(data).length ? data : undefined;
 };
 
@@ -495,9 +545,9 @@ const PAGE_REGEN_SYSTEM = `You are a senior product designer redesigning ONE pag
 
 Return STRICT JSON: { "root": <Container> } — no coordinates.
 Containers: stack (column|row, gap, padding, widthFrac on children) or grid (columns 2-4, gap).
-Leaves: text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, kpi-card, slider, progress, rating, avatar-stack, tag, checkbox-row, toggle-row, chart-bar, chart-line, box.
+Leaves: text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, kpi-card, slider, progress, rating, avatar-stack, tag, checkbox-row, toggle-row, chart-bar, chart-line, chart-donut, table, calendar, timeline, breadcrumb, tabs, search-bar, notification, file-row, code-block, video-player, stat-row, box.
 
-Use data.{title,meta,trailing,glyph,badge,options,active,value,min,max,rating,reviews,delta,trend,count,series,on,checked,tone}.
+Use data.{title,meta,trailing,glyph,badge,options,active,value,min,max,rating,reviews,delta,trend,count,series,on,checked,tone,columns,rows,month,today,marked,events,trail}.
 
 Rules:
 - Page area 420x720. Root is a vertical stack with padding 2.
