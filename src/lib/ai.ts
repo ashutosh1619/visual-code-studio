@@ -112,6 +112,18 @@ PrimitiveType vocabulary — pick the SEMANTICALLY RIGHT one. NEVER use "text" f
   • toggle-row           — settings switch: data.title, data.meta, data.on (bool)
   • chart-bar            — bar chart: data.title, data.trailing (delta), data.series (array of 6-12 numbers 0-100)
   • chart-line           — line chart: data.title, data.trailing ("+12.4%"), data.series (array of 8-16 numbers)
+  • chart-donut          — donut chart: data.series (3-5 numbers), data.options (segment labels), data.trailing (center label e.g. "100%")
+  • table                — data table: data.columns (3-5 headers), data.rows (4-6 rows of strings). Status words like "Paid"/"Pending"/"Failed" auto-color.
+  • calendar             — month view: data.month ("March 2026"), data.today (12), data.marked ([3,8,14,22])
+  • timeline             — vertical event log: data.events ([{title, meta, tone}]) — order chronologically
+  • breadcrumb           — nav trail: data.trail (["Home","Projects","DevCanvas"])
+  • tabs                 — top tab strip: data.options + data.active
+  • search-bar           — full search field: data.title (placeholder), data.trailing ("⌘K")
+  • notification         — toast row: data.title, data.meta, data.glyph (✅ ⚠️ ℹ️), data.tone, data.trailing (timestamp)
+  • file-row             — file/document: data.title ("report.pdf"), data.meta ("2.4 MB · Mar 12"), data.glyph ("PDF"|"DOC"|"XLS"|"IMG"|"ZIP"|"MP4"), data.trailing (download CTA)
+  • code-block           — code snippet: data.title (filename), data.options (array of code lines, 4-8)
+  • video-player         — video tile: data.meta ("0:42"), data.trailing ("2:18"), data.value (0-100 progress)
+  • stat-row             — single metric with sparkline: data.title, data.trailing ("$48.2k"), data.delta ("+12%"), data.trend, data.series
   • box                  — generic surface — AVOID. Use a specific primitive instead.
 
 SECTION TEMPLATES — compose these wherever they fit the domain:
