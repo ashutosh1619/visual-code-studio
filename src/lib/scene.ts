@@ -26,7 +26,20 @@ export type NodeType =
   | "checkbox-row"       // checkbox + label + meta
   | "toggle-row"         // label + meta + iOS-style switch
   | "chart-bar"          // bar chart sparkline
-  | "chart-line";        // line chart sparkline
+  | "chart-line"         // line chart sparkline
+  | "chart-donut"        // donut/ring chart with center label
+  // ---- structured data primitives ----
+  | "table"              // multi-row data table with header
+  | "calendar"           // month grid with today + dot markers
+  | "timeline"           // vertical timeline of events
+  | "breadcrumb"         // Home › Section › Page
+  | "tabs"               // top tab strip with underline indicator
+  | "search-bar"         // input + leading icon + trailing chip
+  | "notification"       // toast-style row: icon + title + meta
+  | "file-row"           // file/document row with type icon + size
+  | "code-block"         // monospace block of fake code
+  | "video-player"       // image-placeholder with play button overlay
+  | "stat-row";          // label + big number + sparkline mini
 
 /** Semantic typographic role; pulled from token scale at render-time when set. */
 export type TextStyleRole =
