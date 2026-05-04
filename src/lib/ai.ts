@@ -545,9 +545,9 @@ const PAGE_REGEN_SYSTEM = `You are a senior product designer redesigning ONE pag
 
 Return STRICT JSON: { "root": <Container> } — no coordinates.
 Containers: stack (column|row, gap, padding, widthFrac on children) or grid (columns 2-4, gap).
-Leaves: text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, kpi-card, slider, progress, rating, avatar-stack, tag, checkbox-row, toggle-row, chart-bar, chart-line, box.
+Leaves: text, button, input, image-placeholder, icon-circle, chip, list-row, card, map-block, segmented, bottom-bar, sidebar, stepper, divider, kpi-card, slider, progress, rating, avatar-stack, tag, checkbox-row, toggle-row, chart-bar, chart-line, chart-donut, table, calendar, timeline, breadcrumb, tabs, search-bar, notification, file-row, code-block, video-player, stat-row, box.
 
-Use data.{title,meta,trailing,glyph,badge,options,active,value,min,max,rating,reviews,delta,trend,count,series,on,checked,tone}.
+Use data.{title,meta,trailing,glyph,badge,options,active,value,min,max,rating,reviews,delta,trend,count,series,on,checked,tone,columns,rows,month,today,marked,events,trail}.
 
 Rules:
 - Page area 420x720. Root is a vertical stack with padding 2.
