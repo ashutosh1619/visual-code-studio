@@ -306,6 +306,7 @@ export const defaultStyleFor = (
       case "progress":
       case "chart-bar":
       case "chart-line":
+      case "chart-donut":
         return { background: "transparent" };
       case "avatar-stack":
       case "rating":
@@ -313,10 +314,41 @@ export const defaultStyleFor = (
       case "tag":
       case "checkbox-row":
       case "toggle-row":
+      case "stat-row":
         return {
           background: WIREFRAME.paper,
           color: WIREFRAME.text,
           borderRadius: 6,
+        };
+      case "table":
+      case "calendar":
+      case "timeline":
+      case "notification":
+      case "file-row":
+      case "video-player":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: WIREFRAME.border,
+        };
+      case "code-block":
+        return {
+          background: "#0f172a",
+          color: "#e2e8f0",
+          borderRadius: 6,
+          fontSize: 11,
+        };
+      case "tabs":
+      case "breadcrumb":
+      case "search-bar":
+        return {
+          background: WIREFRAME.paper,
+          color: WIREFRAME.text,
+          borderRadius: 4,
+          borderWidth: type === "search-bar" ? 1 : 0,
+          borderColor: WIREFRAME.border,
         };
       case "box":
       default:
