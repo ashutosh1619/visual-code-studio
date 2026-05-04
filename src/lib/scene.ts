@@ -542,6 +542,30 @@ export const defaultSizeFor = (type: NodeType) => {
     case "chart-bar":
     case "chart-line":
       return { width: 360, height: 140 };
+    case "chart-donut":
+      return { width: 200, height: 160 };
+    case "table":
+      return { width: 372, height: 220 };
+    case "calendar":
+      return { width: 360, height: 260 };
+    case "timeline":
+      return { width: 360, height: 220 };
+    case "breadcrumb":
+      return { width: 360, height: 24 };
+    case "tabs":
+      return { width: 372, height: 36 };
+    case "search-bar":
+      return { width: 372, height: 44 };
+    case "notification":
+      return { width: 360, height: 64 };
+    case "file-row":
+      return { width: 360, height: 60 };
+    case "code-block":
+      return { width: 372, height: 140 };
+    case "video-player":
+      return { width: 372, height: 200 };
+    case "stat-row":
+      return { width: 360, height: 64 };
     default:
       return { width: 280, height: 180 };
   }
