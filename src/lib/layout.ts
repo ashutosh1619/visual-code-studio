@@ -147,6 +147,34 @@ const leafHeight = (n: IANode, widthPx: number): number => {
     case "chart-bar":
     case "chart-line":
       return Math.max(120, snap(widthPx * 0.45));
+    case "chart-donut":
+      return Math.max(140, snap(widthPx * 0.85));
+    case "table": {
+      const rows = (n.data?.rows?.length ?? 5) + 1; // +1 header
+      return snap(36 + rows * 32);
+    }
+    case "calendar":
+      return Math.max(220, snap(widthPx * 0.78));
+    case "timeline": {
+      const events = n.data?.events?.length ?? 4;
+      return snap(20 + events * 56);
+    }
+    case "breadcrumb":
+      return 28;
+    case "tabs":
+      return 40;
+    case "search-bar":
+      return 44;
+    case "notification":
+      return 68;
+    case "file-row":
+      return 64;
+    case "code-block":
+      return Math.max(120, snap(widthPx * 0.42));
+    case "video-player":
+      return Math.max(180, snap(widthPx * 0.56));
+    case "stat-row":
+      return 72;
     case "box":
       return 80;
     default:
