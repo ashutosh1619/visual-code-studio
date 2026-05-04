@@ -102,6 +102,17 @@ export interface NodeData {
   checked?: boolean;
   /** tag color hint */
   tone?: "success" | "warning" | "danger" | "info" | "neutral";
+  /** table: column headers + rows of strings */
+  columns?: string[];
+  rows?: string[][];
+  /** calendar: month label, today day, marked days */
+  month?: string;
+  today?: number;
+  marked?: number[];
+  /** timeline: array of events */
+  events?: Array<{ title: string; meta?: string; tone?: NodeData["tone"] }>;
+  /** breadcrumb: trail */
+  trail?: string[];
 }
 
 export interface CanvasNode {
