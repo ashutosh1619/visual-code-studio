@@ -140,6 +140,14 @@ SECTION TEMPLATES — compose these wherever they fit the domain:
   • Settings page    → stack[ text(h2), toggle-row x4-5, divider, checkbox-row x3 ]
   • Profile header   → row[ image-placeholder(circle), stack[text(h2), text(caption), avatar-stack] ]
   • Empty state      → stack[ image-placeholder, text(h2), text(body), button ]
+  • Data table page  → stack[ breadcrumb, text(h1), row[search-bar(0.7), button(0.3)], tabs, table ]
+  • Analytics page   → stack[ text(h1), grid(3)[kpi-card x3], chart-line, row[chart-donut(0.5), chart-bar(0.5)] ]
+  • Inbox / log      → stack[ text(h2), notification x4-6 with mixed tones ]
+  • Files browser    → stack[ breadcrumb, search-bar, file-row x5-7 with varied extensions ]
+  • Order tracking   → stack[ text(h1), timeline, divider, list-row x2 ]
+  • Calendar surface → stack[ text(h2), row[calendar(0.6), stack(0.4)[list-row x3 of events]] ]
+  • Dev tools page   → stack[ text(h2), tabs, code-block, row[button, button] ]
+  • Video / media    → stack[ video-player, text(h2), text(body), row[avatar-stack, button] ]
 
 HARD RULES (non-negotiable):
 - Page area is 420×720. Root container is a vertical "stack" with padding 2.
