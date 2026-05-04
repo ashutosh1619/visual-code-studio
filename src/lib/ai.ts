@@ -154,7 +154,10 @@ HARD RULES (non-negotiable):
 - Generate 5-8 pages covering the WHOLE journey for the inferred domain.
 - Per page: 14-28 leaves. DENSE, realistic, domain-specific copy — names, numbers, dates, statuses, prices, percentages, real-world IDs.
 - ALWAYS use kpi-card for dashboard metrics (NOT card with title="MRR")
-- ALWAYS use chart-bar/chart-line for analytics screens — every dashboard MUST have at least one chart
+- ALWAYS use chart-bar/chart-line/chart-donut for analytics — every dashboard MUST have at least one chart, ideally two of different types
+- ALWAYS use table for tabular data (transactions, users, orders) — never fake it with list-rows
+- ALWAYS use timeline for chronological events (order tracking, audit log, activity history)
+- ALWAYS use breadcrumb on detail/nested pages and tabs to chunk content within a page
 - ALWAYS use rating + reviews on product/restaurant/listing cards
 - ALWAYS use tag (with tone) for statuses like "Active", "Pending", "Paid", "Failed"
 - ALWAYS use slider for price/distance/range filters
