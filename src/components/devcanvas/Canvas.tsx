@@ -23,6 +23,18 @@ import {
   CheckboxRowGlyph,
   ChartBarGlyph,
   ChartLineGlyph,
+  ChartDonutGlyph,
+  TableGlyph,
+  CalendarGlyph,
+  TimelineGlyph,
+  BreadcrumbGlyph,
+  TabsGlyph,
+  SearchBarGlyph,
+  NotificationGlyph,
+  FileRowGlyph,
+  CodeBlockGlyph,
+  VideoPlayerGlyph,
+  StatRowGlyph,
 } from "./PrimitiveGlyphs";
 
 interface Props {
