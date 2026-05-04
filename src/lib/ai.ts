@@ -310,7 +310,9 @@ const VALID_NODE_TYPES: NodeType[] = [
   "image-placeholder", "icon-circle", "chip", "list-row", "card",
   "map-block", "segmented", "bottom-bar", "sidebar", "stepper", "divider",
   "slider", "avatar-stack", "rating", "progress", "kpi-card", "tag",
-  "checkbox-row", "toggle-row", "chart-bar", "chart-line",
+  "checkbox-row", "toggle-row", "chart-bar", "chart-line", "chart-donut",
+  "table", "calendar", "timeline", "breadcrumb", "tabs", "search-bar",
+  "notification", "file-row", "code-block", "video-player", "stat-row",
 ];
 
 const VALID_TONES = ["success", "warning", "danger", "info", "neutral"] as const;
